@@ -22,7 +22,7 @@ export default function LoginPage() {
     setError("")
     try {
       await login(email, password)
-      router.push(email === "master@example.com" ? "/dashboard" : "/meu-desempenho")
+      router.push(email === "master@example.com" ? "/home" : "/meu-desempenho")
     } catch (err) {
       const errorMessage = "Email ou senha inválidos"
       setError(errorMessage)

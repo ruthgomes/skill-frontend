@@ -22,7 +22,7 @@ export function Sidebar() {
   const isMaster = user.role === "master"
 
   const masterLinks = [
-    { href: "/dashboard", label: "Home", icon: "🏠" },
+    { href: "/home", label: "Home", icon: "🏠" },
     { href: "/times", label: "Times", icon: "👨‍👩‍👧‍👦" },
     { href: "/cadastro", label: "Cadastro", icon: "➕" },
     { href: "/tecnicos", label: "Técnicos", icon: "👥" },

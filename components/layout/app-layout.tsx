@@ -26,7 +26,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const navItems =
     user.role === "master"
       ? [
-          { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
+          { href: "/home", label: "Home", icon: BarChart3 },
           { href: "/times", label: "Times", icon: Users },
           { href: "/cadastro", label: "Cadastro", icon: BarChart3 },
           { href: "/tecnicos", label: "Técnicos", icon: Users },

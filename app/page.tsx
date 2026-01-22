@@ -11,7 +11,7 @@ export default function Home() {
 
   useEffect(() => {
     if (user) {
-      router.push(user.role === "tecnico" ? "/meu-desempenho" : "/dashboard")
+      router.push(user.role === "tecnico" ? "/meu-desempenho" : "/home")
     }
   }, [user, router])
 
