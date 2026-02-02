@@ -40,30 +40,36 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-background via-white to-secondary flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-24 h-24 mb-0">
+    <div className="min-h-screen flex items-center justify-center p-4 relative">
+      <div className="absolute inset-0 z-0">
+        <Image 
+          src="/bg-flex.png" 
+          alt="Background" 
+          fill
+          className="object-cover"
+          priority
+        />
+      </div>
+      <div className="w-full max-w-md relative z-10">
+        <Card className="border-0 shadow-lg rounded-xl">
+          <div className="flex justify-center pt-5 pb-3">
             <Image 
               src="/Flex.svg" 
               alt="FLEX" 
-              width={96} 
-              height={96}
-              className="w-full h-full object-contain"
+              width={100} 
+              height={50}
+              className="object-contain"
             />
           </div>
-          <h1 className="text-xl font-bold text-primary">SKILL</h1>
-        </div>
-
-        <Card className="border border-border shadow-lg">
-          <CardHeader>
-            <CardTitle>Login</CardTitle>
-            <CardDescription>Entre com suas credenciais para continuar</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">Email</label>
+          <CardContent className="px-7 pb-6">
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-gray-900 mb-0.5">Login</h2>
+              <p className="text-xs text-gray-600">Entre com suas credenciais para continuar</p>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-900">Email</label>
                 <Input
                   type="email"
                   value={email}
@@ -71,11 +77,11 @@ export default function LoginPage() {
                   placeholder="usuario@example.com"
                   disabled={isLoading}
                   required
-                  className="border-primary/20 focus:border-primary"
+                  className="h-10 text-sm border-gray-300 focus:border-[#005486] focus:ring-[#005486]"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-foreground">Senha</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-900">Senha</label>
                 <Input
                   type="password"
                   value={password}
@@ -83,28 +89,35 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   disabled={isLoading}
                   required
-                  className="border-primary/20 focus:border-primary"
+                  className="h-10 text-sm border-gray-300 focus:border-[#005486] focus:ring-[#005486]"
                 />
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 p-3 rounded-lg">
-                  <AlertCircle size={16} />
+                <div className="flex items-center gap-2 text-red-600 text-xs bg-red-50 p-2 rounded">
+                  <AlertCircle size={14} />
                   {error}
                 </div>
               )}
 
-              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full h-10 text-white text-sm font-medium rounded-lg mt-3" 
+                style={{ backgroundColor: '#005486' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#004070'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#005486'}
+                disabled={isLoading}
+              >
                 {isLoading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
 
-            <div className="relative">
+            <div className="relative my-4">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border"></div>
+                <div className="w-full border-t border-gray-300"></div>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="px-2 bg-card text-muted-foreground">Contas de Demo</span>
+              <div className="relative flex justify-center text-[10px]">
+                <span className="px-2 bg-white text-gray-500 uppercase tracking-wider">Contas de Demo</span>
               </div>
             </div>
 
@@ -114,11 +127,14 @@ export default function LoginPage() {
                   key={account.email}
                   type="button"
                   onClick={() => fillDemoAccount(account.email)}
-                  className="w-full p-3 bg-secondary/50 rounded border border-primary/20 hover:bg-secondary transition-colors text-left text-sm font-medium"
+                  className="w-full p-2.5 rounded-lg transition-colors text-left"
+                  style={{ backgroundColor: '#e6f2f8' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#cce5f0'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e6f2f8'}
                 >
-                  <div className="text-primary">{account.name}</div>
-                  <div className="text-muted-foreground text-xs mt-1">{account.email}</div>
-                  <div className="text-muted-foreground text-xs">Senha: password</div>
+                  <div className="text-xs font-semibold text-gray-900">{account.name}</div>
+                  <div className="text-[11px] text-gray-600 mt-0.5">{account.email}</div>
+                  <div className="text-[11px] text-gray-600">Senha: password</div>
                 </button>
               ))}
             </div>

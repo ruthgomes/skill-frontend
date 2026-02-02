@@ -50,12 +50,13 @@ export function Sidebar() {
 
       {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 h-screen w-64 bg-sidebar text-sidebar-foreground shadow-lg transform transition-transform duration-300 z-40 lg:translate-x-0 ${
+        className={`fixed top-0 left-0 h-screen w-64 shadow-lg transform transition-transform duration-300 z-40 lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
+        style={{ backgroundColor: '#262626' }}
       >
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-white mb-8">SisOp</h1>
+          <h1 className="text-2xl font-bold text-white mb-8">SKILL</h1>
 
           {/* User Info */}
           <div className="mb-8 pb-6 border-b border-sidebar-border">

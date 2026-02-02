@@ -45,20 +45,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div
         className={`${
           sidebarOpen ? "w-64" : "w-20"
-        } bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col`}
+        } border-r border-sidebar-border transition-all duration-300 flex flex-col`}
+        style={{ backgroundColor: '#262626' }}
       >
-        <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
+        <div className="p-4 flex items-center justify-between">
           <div className={`${sidebarOpen ? "flex" : "hidden"} items-center gap-2`}>
-            <div className="w-12 h-12 flex items-center justify-center">
-              <Image 
-                src="/Flex.svg" 
-                alt="FLEX" 
-                width={48} 
-                height={48}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <span className="font-bold text-sidebar-foreground">SKILL</span>
+            <span className="font-bold text-white text-xl">SKILL</span>
           </div>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -77,9 +69,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <button
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                     isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:bg-opacity-20"
+                      ? "text-white"
+                      : "text-sidebar-foreground"
                   }`}
+                  style={isActive ? { backgroundColor: '#005486' } : undefined}
+                  onMouseEnter={(e) => {
+                    if (!isActive) e.currentTarget.style.backgroundColor = '#005486'
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) e.currentTarget.style.backgroundColor = ''
+                  }}
                 >
                   <Icon size={20} />
                   {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
@@ -89,7 +88,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border space-y-2">
+        <div className="p-4 space-y-2">
           <div className={`${sidebarOpen ? "block" : "hidden"} text-xs text-sidebar-foreground mb-3`}>
             <div className="font-semibold">{user.name}</div>
             <div className="text-sidebar-foreground opacity-70">{user.email}</div>

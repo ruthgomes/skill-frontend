@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { useState } from "react"
 import { MACHINES, SKILLS, mockTeams } from "@/lib/data"
-import { Settings, Plus, Edit, Trash2 } from "lucide-react"
+import { Settings, Plus, Edit, Trash2, Upload, X } from "lucide-react"
 
 export default function CadastroPage() {
   const { user } = useAuth()
@@ -27,6 +27,7 @@ export default function CadastroPage() {
   const [newSkillName, setNewSkillName] = useState("")
   const [skillForm, setSkillForm] = useState({ name: "", category: "" })
   const [machines, setMachines] = useState(MACHINES)
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
 
   if (!user || user.role !== "master") {
     router.push("/")
@@ -57,6 +58,21 @@ export default function CadastroPage() {
     alert(`Máquina ${newMachine.name} cadastrada com sucesso!`)
   }
 
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setProfilePhoto(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removePhoto = () => {
+    setProfilePhoto(null)
+  }
+
   return (
     <AppLayout>
       <div className="p-6 space-y-6">
@@ -70,6 +86,8 @@ export default function CadastroPage() {
             <TabsTrigger value="machines">Máquinas</TabsTrigger>
             <TabsTrigger value="skills">Habilidades</TabsTrigger>
             <TabsTrigger value="new-operator">Novo Técnico</TabsTrigger>
+            <TabsTrigger value="new-coordinator">Novo Coordenador</TabsTrigger>
+            <TabsTrigger value="new-supervisor">Novo Supervisor</TabsTrigger>
           </TabsList>
 
           {/* Machines Tab */}
@@ -200,6 +218,40 @@ export default function CadastroPage() {
                 <CardTitle>Cadastrar Novo Técnico</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Photo Upload */}
+                <div className="flex justify-center mb-6">
+                  <div className="relative">
+                    {profilePhoto ? (
+                      <div className="relative">
+                        <img 
+                          src={profilePhoto} 
+                          alt="Foto do Técnico" 
+                          className="w-32 h-32 rounded-full object-cover border-4 border-primary"
+                        />
+                        <button
+                          onClick={removePhoto}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer">
+                        <div className="w-32 h-32 rounded-full bg-gray-200 flex flex-col items-center justify-center border-2 border-dashed border-primary hover:bg-gray-300 transition">
+                          <Upload size={32} className="text-primary mb-2" />
+                          <span className="text-xs text-gray-600">Adicionar Foto</span>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold">Nome</label>
@@ -241,6 +293,153 @@ export default function CadastroPage() {
                   * Os técnicos trabalham com todas as máquinas do sistema
                 </p>
                 <Button className="bg-primary hover:bg-primary/90 w-full">Cadastrar Técnico</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* New Coordinator Tab */}
+          <TabsContent value="new-coordinator" className="space-y-4">
+            <Card className="border-primary/10">
+              <CardHeader>
+                <CardTitle>Cadastrar Novo Coordenador</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Photo Upload */}
+                <div className="flex justify-center mb-6">
+                  <div className="relative">
+                    {profilePhoto ? (
+                      <div className="relative">
+                        <img 
+                          src={profilePhoto} 
+                          alt="Foto do Coordenador" 
+                          className="w-32 h-32 rounded-full object-cover border-4 border-primary"
+                        />
+                        <button
+                          onClick={removePhoto}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer">
+                        <div className="w-32 h-32 rounded-full bg-gray-200 flex flex-col items-center justify-center border-2 border-dashed border-primary hover:bg-gray-300 transition">
+                          <Upload size={32} className="text-primary mb-2" />
+                          <span className="text-xs text-gray-600">Adicionar Foto</span>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Nome</label>
+                    <Input placeholder="Nome completo" className="border-primary/20" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Workday</label>
+                    <Input placeholder="Ex: WDC00001" className="border-primary/20" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Cargo</label>
+                    <Input placeholder="Coordenador" value="Coordenador" className="border-primary/20" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Área</label>
+                    <Input placeholder="Ex: Produção" className="border-primary/20" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Departamento</label>
+                    <select className="w-full border border-primary/20 rounded p-2 bg-white">
+                      <option>BACKEND</option>
+                      <option>FRONTEND</option>
+                      <option>ME TESTE</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Time <span className="text-red-500">*</span></label>
+                    <select className="w-full border border-primary/20 rounded p-2 bg-white" required>
+                      <option value="">Selecione um time</option>
+                      {mockTeams.filter(t => t.status === "ativo").map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <Button className="bg-primary hover:bg-primary/90 w-full">Cadastrar Coordenador</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* New Supervisor Tab */}
+          <TabsContent value="new-supervisor" className="space-y-4">
+            <Card className="border-primary/10">
+              <CardHeader>
+                <CardTitle>Cadastrar Novo Supervisor</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Photo Upload */}
+                <div className="flex justify-center mb-6">
+                  <div className="relative">
+                    {profilePhoto ? (
+                      <div className="relative">
+                        <img 
+                          src={profilePhoto} 
+                          alt="Foto do Supervisor" 
+                          className="w-32 h-32 rounded-full object-cover border-4 border-primary"
+                        />
+                        <button
+                          onClick={removePhoto}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer">
+                        <div className="w-32 h-32 rounded-full bg-gray-200 flex flex-col items-center justify-center border-2 border-dashed border-primary hover:bg-gray-300 transition">
+                          <Upload size={32} className="text-primary mb-2" />
+                          <span className="text-xs text-gray-600">Adicionar Foto</span>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Nome</label>
+                    <Input placeholder="Nome completo" className="border-primary/20" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Workday</label>
+                    <Input placeholder="Ex: WDC00001" className="border-primary/20" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Cargo</label>
+                    <Input placeholder="Supervisor" value="Supervisor" className="border-primary/20" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Área</label>
+                    <Input placeholder="Ex: Operações" className="border-primary/20" />
+                  </div>
+                </div>
+                <Button className="bg-primary hover:bg-primary/90 w-full">Cadastrar Supervisor</Button>
               </CardContent>
             </Card>
           </TabsContent>
