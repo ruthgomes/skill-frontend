@@ -41,16 +41,31 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
+      {/* Background */}
       <div className="absolute inset-0 z-0">
         <Image 
-          src="/bg-flex.png" 
+          src="/Flex-background.png" 
           alt="Background" 
           fill
           className="object-cover"
           priority
         />
       </div>
-      <div className="w-full max-w-md relative z-10">
+      
+      {/* Imagem AI.svg - posição fixa no lado esquerdo */}
+      <div className="hidden lg:block absolute left-12 top-1/2 -translate-y-1/2 z-10">
+        <Image 
+          src="/AI.svg" 
+          alt="AI" 
+          width={280} 
+          height={280}
+          className="object-contain"
+          priority
+        />
+      </div>
+
+      {/* Formulário centralizado */}
+      <div className="w-full max-w-md relative z-20">
         <Card className="border-0 shadow-lg rounded-xl">
           <div className="flex justify-center pt-5 pb-3">
             <Image 
