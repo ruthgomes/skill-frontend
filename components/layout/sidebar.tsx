@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { LogOut, Menu, X } from "lucide-react"
 import { useState } from "react"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export function Sidebar() {
   const { user, logout } = useAuth()
@@ -88,8 +89,11 @@ export function Sidebar() {
           </nav>
         </div>
 
-        {/* Logout */}
-        <div className="absolute bottom-6 left-6 right-6">
+        {/* Theme Toggle & Logout */}
+        <div className="absolute bottom-6 left-6 right-6 space-y-3">
+          <div className="flex justify-center">
+            <ThemeToggle />
+          </div>
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
