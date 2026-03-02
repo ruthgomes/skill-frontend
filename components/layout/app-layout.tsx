@@ -7,6 +7,7 @@ import { BarChart3, Users, TrendingUp, LogOut, Menu, X } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useState } from "react"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
@@ -92,6 +93,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className={`${sidebarOpen ? "block" : "hidden"} text-xs text-sidebar-foreground mb-3`}>
             <div className="font-semibold">{user.name}</div>
             <div className="text-sidebar-foreground opacity-70">{user.email}</div>
+          </div>
+          <div className="mb-2 flex justify-center">
+            <ThemeToggle />
           </div>
           <button
             onClick={handleLogout}
