@@ -33,7 +33,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const mockUsers: Record<string, { name: string; role: UserRole; workday?: string }> = {
         "master@example.com": { name: "Maria Silva", role: "master" },
-        "tecnico@example.com": { name: "João Santos", role: "tecnico", workday: "OP001" },
       }
 
       if (mockUsers[email] && password === "password") {

@@ -5,7 +5,6 @@ import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { LogOut, Menu, X } from "lucide-react"
 import { useState } from "react"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export function Sidebar() {
   const { user, logout } = useAuth()
@@ -20,9 +19,7 @@ export function Sidebar() {
 
   if (!user) return null
 
-  const isMaster = user.role === "master"
-
-  const masterLinks = [
+  const links = [
     { href: "/home", label: "Home", icon: "🏠" },
     { href: "/times", label: "Times", icon: "👨‍👩‍👧‍👦" },
     { href: "/cadastro", label: "Cadastro", icon: "➕" },
@@ -31,13 +28,6 @@ export function Sidebar() {
     { href: "/avaliacoes", label: "Avaliações", icon: "⭐" },
     { href: "/usuarios", label: "Usuários", icon: "🔐" },
   ]
-
-  const operadorLinks = [
-    { href: "/meu-desempenho", label: "Meu Desempenho", icon: "📈" },
-    { href: "/historico", label: "Histórico", icon: "📜" },
-  ]
-
-  const links = isMaster ? masterLinks : operadorLinks
 
   return (
     <>
@@ -63,7 +53,7 @@ export function Sidebar() {
           <div className="mb-8 pb-6 border-b border-sidebar-border">
             <p className="text-sm text-sidebar-foreground/80">Conectado como</p>
             <p className="font-semibold text-white truncate">{user.name}</p>
-            <p className="text-xs text-sidebar-foreground/60 mt-1 uppercase">{isMaster ? "Master" : "Operador"}</p>
+            <p className="text-xs text-sidebar-foreground/60 mt-1 uppercase">Master/Supervisor</p>
           </div>
 
           {/* Navigation Links */}
@@ -89,11 +79,8 @@ export function Sidebar() {
           </nav>
         </div>
 
-        {/* Theme Toggle & Logout */}
+        {/* Logout */}
         <div className="absolute bottom-6 left-6 right-6 space-y-3">
-          <div className="flex justify-center">
-            <ThemeToggle />
-          </div>
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"

@@ -13,11 +13,25 @@ import { useState } from "react"
 export default function UsuariosPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [newUser, setNewUser] = useState({ email: "", name: "", role: "tecnico" })
+  const [newUser, setNewUser] = useState({ 
+    email: "", 
+    name: "", 
+    role: "master" as "master" | "supervisor"
+  })
 
   if (!user || user.role !== "master") {
     router.push("/")
     return null
+  }
+
+  const handleAddUser = () => {
+    if (!newUser.name || !newUser.email) {
+      alert("Preencha todos os campos!")
+      return
+    }
+    console.log("Cadastrando usuário:", newUser)
+    alert(`Usuário ${newUser.name} cadastrado com sucesso!`)
+    setNewUser({ email: "", name: "", role: "master" })
   }
 
   return (
@@ -25,7 +39,9 @@ export default function UsuariosPage() {
       <div className="space-y-6 p-8">
         <div>
           <h1 className="text-4xl font-bold text-primary">Controle de Usuários</h1>
-          <p className="text-muted-foreground mt-2">Gerenciar acessos do sistema</p>
+          <p className="text-muted-foreground mt-2">
+            Gerenciar usuários com acesso ao sistema (Masters e Supervisores)
+          </p>
         </div>
 
         {/* Add New User */}
@@ -36,7 +52,16 @@ export default function UsuariosPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Email</label>
+                <label className="text-sm font-semibold">Nome Completo *</label>
+                <Input
+                  value={newUser.name}
+                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                  placeholder="Nome completo"
+                  className="border-primary/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold">Email *</label>
                 <Input
                   type="email"
                   value={newUser.email}
@@ -46,34 +71,30 @@ export default function UsuariosPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Nome</label>
-                <Input
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  placeholder="Nome completo"
-                  className="border-primary/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold">Função</label>
+                <label className="text-sm font-semibold">Função *</label>
                 <select
                   value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="w-full border border-primary/20 rounded p-2 bg-white"
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as "master" | "supervisor" })}
+                  className="w-full border border-primary/20 rounded p-2 bg-white h-10"
                 >
-                  <option value="tecnico">Técnico</option>
                   <option value="master">Master</option>
+                  <option value="supervisor">Supervisor</option>
                 </select>
               </div>
             </div>
-            <Button className="bg-primary hover:bg-primary/90 w-full">Adicionar Usuário</Button>
+            <Button 
+              onClick={handleAddUser}
+              className="bg-primary hover:bg-primary/90 w-full"
+            >
+              Adicionar Usuário
+            </Button>
           </CardContent>
         </Card>
 
         {/* Users List */}
         <Card className="border-primary/10">
           <CardHeader>
-            <CardTitle>Usuários do Sistema</CardTitle>
+            <CardTitle>Usuários Cadastrados</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -86,14 +107,9 @@ export default function UsuariosPage() {
                     <p className="font-semibold text-foreground">{u.name}</p>
                     <p className="text-sm text-muted-foreground">{u.email}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge className={u.role === "master" ? "bg-primary text-white" : "bg-secondary"}>
-                      {u.role === "master" ? "Master" : "Técnico"}
-                    </Badge>
-                    <Button variant="outline" size="sm" className="border-primary/20 bg-transparent">
-                      Editar
-                    </Button>
-                  </div>
+                  <Badge className="bg-primary text-white capitalize">
+                    {u.role === "master" ? "Master" : "Supervisor"}
+                  </Badge>
                 </div>
               ))}
             </div>

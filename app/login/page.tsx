@@ -1,9 +1,10 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,13 +17,19 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const { login, isLoading } = useAuth()
   const router = useRouter()
+  const { setTheme } = useTheme()
+
+  // Força o tema claro na página de login
+  useEffect(() => {
+    setTheme('light')
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     try {
       await login(email, password)
-      router.push(email === "master@example.com" ? "/home" : "/meu-desempenho")
+      router.push("/home")
     } catch (err) {
       const errorMessage = "Email ou senha inválidos"
       setError(errorMessage)
@@ -30,8 +37,7 @@ export default function LoginPage() {
   }
 
   const demoAccounts = [
-    { email: "master@example.com", name: "Master" },
-    { email: "tecnico@example.com", name: "Técnico" },
+    { email: "master@example.com", name: "Master/Supervisor" },
   ]
 
   const fillDemoAccount = (demoEmail: string) => {

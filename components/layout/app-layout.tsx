@@ -24,21 +24,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
-  const navItems =
-    user.role === "master"
-      ? [
-          { href: "/home", label: "Home", icon: BarChart3 },
-          { href: "/times", label: "Times", icon: Users },
-          { href: "/cadastro", label: "Cadastro", icon: BarChart3 },
-          { href: "/tecnicos", label: "Técnicos", icon: Users },
-          { href: "/dashboards", label: "Dashboards", icon: TrendingUp },
-          { href: "/avaliacoes", label: "Avaliações", icon: BarChart3 },
-          { href: "/usuarios", label: "Usuários", icon: Users },
-        ]
-      : [
-          { href: "/meu-desempenho", label: "Meu Desempenho", icon: TrendingUp },
-          { href: "/historico", label: "Histórico", icon: BarChart3 },
-        ]
+  const navItems = [
+    { href: "/home", label: "Home", icon: BarChart3 },
+    { href: "/times", label: "Times", icon: Users },
+    { href: "/cadastro", label: "Cadastro", icon: BarChart3 },
+    { href: "/tecnicos", label: "Técnicos", icon: Users },
+    { href: "/dashboards", label: "Dashboards", icon: TrendingUp },
+    { href: "/avaliacoes", label: "Avaliações", icon: BarChart3 },
+    { href: "/usuarios", label: "Usuários", icon: Users },
+  ]
 
   return (
     <div className="flex h-screen bg-background">
@@ -94,9 +88,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="font-semibold">{user.name}</div>
             <div className="text-sidebar-foreground opacity-70">{user.email}</div>
           </div>
-          <div className="mb-2 flex justify-center">
-            <ThemeToggle />
-          </div>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:bg-opacity-20 transition-colors text-sm"
@@ -110,9 +101,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
-        <div className="bg-card border-b border-border h-16 flex items-center justify-between px-6">
+        <div className="bg-card h-16 flex items-center justify-between px-6">
           <div></div>
-          <div className="flex items-center gap-4"></div>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+          </div>
         </div>
 
         {/* Page Content */}
