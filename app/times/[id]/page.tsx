@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -10,8 +10,8 @@ import {
   Trash2,
   MoreVertical,
   Target,
-  ClipboardList,
   UserCircle,
+  User2,
 } from "lucide-react"
 import { AppLayout } from "@/components/layout/app-layout"
 import { Button } from "@/components/ui/button"
@@ -41,16 +41,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
 import {
   mockTeams,
   mockSubTeams,
   mockTecnicos,
   type SubTeam,
-  type EvaluationCriteria,
-  type TeamFunction,
 } from "@/lib/data"
 import Link from "next/link"
+
+type FormData = {
+  name: string
+  description: string
+  coordenadorId: string
+}
 
 export default function TeamDetailPage() {
   const params = useParams()
@@ -64,10 +67,16 @@ export default function TeamDetailPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingSubTeam, setEditingSubTeam] = useState<SubTeam | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
+    coordenadorId: "",
   })
+
+  // Buscar coordenadores disponíveis
+  const availableCoordinators = useMemo(() => {
+    return mockTecnicos.filter((t) => t.senioridade === "Coordenador")
+  }, [])
 
   if (!team) {
     return (
@@ -84,13 +93,20 @@ export default function TeamDetailPage() {
   }
 
   const handleCreateOrUpdate = () => {
+    if (!formData.name || !formData.description) {
+      alert("Preencha todos os campos obrigatórios!")
+      return
+    }
+
     if (editingSubTeam) {
       setSubTeams(
         subTeams.map((st) =>
           st.id === editingSubTeam.id
             ? {
                 ...st,
-                ...formData,
+                name: formData.name,
+                description: formData.description,
+                coordenadorId: formData.coordenadorId || undefined,
                 updatedAt: new Date().toISOString(),
               }
             : st
@@ -98,9 +114,11 @@ export default function TeamDetailPage() {
       )
     } else {
       const newSubTeam: SubTeam = {
-        id: `subteam${subTeams.length + 1}`,
-        ...formData,
+        id: `subteam${Date.now()}`,
+        name: formData.name,
+        description: formData.description,
         parentTeamId: teamId,
+        coordenadorId: formData.coordenadorId || undefined,
         functions: [],
         evaluationCriteria: [],
         members: [],
@@ -118,6 +136,7 @@ export default function TeamDetailPage() {
     setFormData({
       name: subTeam.name,
       description: subTeam.description,
+      coordenadorId: subTeam.coordenadorId || "",
     })
     setDialogOpen(true)
   }
@@ -134,13 +153,14 @@ export default function TeamDetailPage() {
     setFormData({
       name: "",
       description: "",
+      coordenadorId: "",
     })
   }
 
-  const getLeaderName = (leaderId?: string) => {
-    if (!leaderId) return "Não definido"
-    const leader = mockTecnicos.find((t) => t.id === leaderId)
-    return leader ? leader.name : "Não definido"
+  const getCoordenadorName = (coordenadorId?: string) => {
+    if (!coordenadorId) return "Não definido"
+    const coordenador = mockTecnicos.find((t) => t.id === coordenadorId)
+    return coordenador ? coordenador.name : "Não definido"
   }
 
   const getMemberNames = (memberIds: string[]) => {
@@ -150,6 +170,32 @@ export default function TeamDetailPage() {
         return member ? member.name : null
       })
       .filter(Boolean)
+  }
+
+  const getGenderCount = (subTeam: SubTeam, gender: "M" | "F") => {
+    return subTeam.members.filter((memberId) => {
+      const member = mockTecnicos.find((t) => t.id === memberId)
+      return member?.gender === gender
+    }).length
+  }
+
+  const getSenioridadeCount = (subTeam: SubTeam) => {
+    const counts = {
+      Auxiliar: 0,
+      Junior: 0,
+      Pleno: 0,
+      Sênior: 0,
+      Especialista: 0,
+    }
+
+    subTeam.members.forEach((memberId) => {
+      const member = mockTecnicos.find((t) => t.id === memberId)
+      if (member && member.senioridade in counts) {
+        counts[member.senioridade as keyof typeof counts]++
+      }
+    })
+
+    return counts
   }
 
   return (
@@ -232,229 +278,230 @@ export default function TeamDetailPage() {
             </Card>
           ) : (
             <div className="grid gap-6">
-              {subTeams.map((subTeam) => (
-                <Card key={subTeam.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                          {subTeam.name}
-                          <Badge
-                            variant={
-                              subTeam.status === "ativo" ? "default" : "secondary"
-                            }
-                          >
-                            {subTeam.status}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription className="mt-2">
-                          {subTeam.description}
-                        </CardDescription>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(subTeam)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(subTeam.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Tabs defaultValue="overview" className="w-full">
-                      <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-                        <TabsTrigger value="evaluations">Avaliações</TabsTrigger>
-                        <TabsTrigger value="functions">Funções</TabsTrigger>
-                      </TabsList>
+              {subTeams.map((subTeam) => {
+                const senioridadeCounts = getSenioridadeCount(subTeam)
+                const maleCount = getGenderCount(subTeam, "M")
+                const femaleCount = getGenderCount(subTeam, "F")
 
-                      <TabsContent value="overview" className="space-y-4 mt-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                          <div className="space-y-2">
-                            <div className="flex items-center text-sm">
-                              <UserCircle className="mr-2 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">Líder:</span>
-                              <span className="ml-2 text-muted-foreground">
-                                {getLeaderName(subTeam.leaderId)}
-                              </span>
-                            </div>
-                            <div className="flex items-center text-sm">
-                              <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">Membros:</span>
-                              <span className="ml-2 text-muted-foreground">
-                                {subTeam.members.length}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center text-sm">
-                              <Target className="mr-2 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">Critérios:</span>
-                              <span className="ml-2 text-muted-foreground">
-                                {subTeam.evaluationCriteria.length}
-                              </span>
-                            </div>
-                            <div className="flex items-center text-sm">
-                              <ClipboardList className="mr-2 h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">Funções:</span>
-                              <span className="ml-2 text-muted-foreground">
-                                {subTeam.functions.length}
-                              </span>
-                            </div>
-                          </div>
+                return (
+                  <Card key={subTeam.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-xl flex items-center gap-2">
+                            {subTeam.name}
+                            <Badge
+                              variant={
+                                subTeam.status === "ativo" ? "default" : "secondary"
+                              }
+                            >
+                              {subTeam.status}
+                            </Badge>
+                          </CardTitle>
+                          <CardDescription className="mt-2">
+                            {subTeam.description}
+                          </CardDescription>
                         </div>
-                        {subTeam.members.length > 0 && (
-                          <div className="mt-4">
-                            <h4 className="font-semibold text-sm mb-2">
-                              Membros do Sub-time:
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {getMemberNames(subTeam.members).map((name) => (
-                                <Badge key={name} variant="outline">
-                                  {name}
-                                </Badge>
-                              ))}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(subTeam)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(subTeam.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <Tabs defaultValue="overview" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+                          <TabsTrigger value="functions">Funções</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="overview" className="space-y-4 mt-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-3">
+                              <div className="flex items-center text-sm">
+                                <UserCircle className="mr-2 h-4 w-4 text-primary" />
+                                <span className="font-medium">Líder:</span>
+                                <span className="ml-2 text-primary font-semibold">
+                                  {getCoordenadorName(subTeam.coordenadorId)}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">Membros:</span>
+                                <span className="ml-2 text-muted-foreground">
+                                  {subTeam.members.length}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="flex items-center text-sm">
+                                <User2 className="mr-2 h-4 w-4 text-blue-500" />
+                                <span className="font-medium">Homens:</span>
+                                <span className="ml-2 text-muted-foreground">
+                                  {maleCount}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <User2 className="mr-2 h-4 w-4 text-pink-500" />
+                                <span className="font-medium">Mulheres:</span>
+                                <span className="ml-2 text-muted-foreground">
+                                  {femaleCount}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        )}
-                      </TabsContent>
-
-                      <TabsContent value="evaluations" className="space-y-4 mt-4">
-                        {subTeam.evaluationCriteria.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-8">
-                            Nenhum critério de avaliação definido
-                          </p>
-                        ) : (
-                          <div className="space-y-4">
-                            {subTeam.evaluationCriteria.map((criteria) => (
-                              <div
-                                key={criteria.id}
-                                className="p-4 border rounded-lg space-y-2"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <h4 className="font-semibold text-sm">
-                                    {criteria.name}
-                                  </h4>
-                                  <Badge variant="secondary">
-                                    Peso: {criteria.weight}%
+                          {subTeam.members.length > 0 && (
+                            <div className="mt-4">
+                              <h4 className="font-semibold text-sm mb-2">
+                                Membros do Sub-time:
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {getMemberNames(subTeam.members).map((name) => (
+                                  <Badge key={name} variant="outline">
+                                    {name}
                                   </Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {criteria.description}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  <Progress value={criteria.weight} className="flex-1" />
-                                  <span className="text-xs text-muted-foreground">
-                                    Max: {criteria.maxScore}
-                                  </span>
-                                </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </TabsContent>
+                            </div>
+                          )}
+                        </TabsContent>
 
-                      <TabsContent value="functions" className="space-y-4 mt-4">
-                        {subTeam.functions.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-8">
-                            Nenhuma função definida
-                          </p>
-                        ) : (
-                          <div className="space-y-4">
-                            {subTeam.functions.map((func) => (
-                              <div
-                                key={func.id}
-                                className="p-4 border rounded-lg space-y-2"
-                              >
-                                <h4 className="font-semibold text-sm">{func.name}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {func.description}
-                                </p>
-                                <div className="mt-3">
-                                  <p className="text-xs font-medium text-muted-foreground mb-2">
-                                    Responsabilidades:
-                                  </p>
-                                  <ul className="list-disc list-inside space-y-1">
-                                    {func.responsibilities.map((resp, idx) => (
-                                      <li key={idx} className="text-sm">
-                                        {resp}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
+                        <TabsContent value="functions" className="space-y-4 mt-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-3">
+                              <div className="flex items-center text-sm">
+                                <Target className="mr-2 h-4 w-4 text-yellow-500" />
+                                <span className="font-medium">Auxiliar:</span>
+                                <span className="ml-2 text-muted-foreground">
+                                  {senioridadeCounts.Auxiliar}
+                                </span>
                               </div>
-                            ))}
+                              <div className="flex items-center text-sm">
+                                <Target className="mr-2 h-4 w-4 text-green-500" />
+                                <span className="font-medium">Júnior:</span>
+                                <span className="ml-2 text-muted-foreground">
+                                  {senioridadeCounts.Junior}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <Target className="mr-2 h-4 w-4 text-blue-500" />
+                                <span className="font-medium">Pleno:</span>
+                                <span className="ml-2 text-muted-foreground">
+                                  {senioridadeCounts.Pleno}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="flex items-center text-sm">
+                                <Target className="mr-2 h-4 w-4 text-purple-500" />
+                                <span className="font-medium">Sênior:</span>
+                                <span className="ml-2 text-muted-foreground">
+                                  {senioridadeCounts.Sênior}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm">
+                                <Target className="mr-2 h-4 w-4 text-orange-500" />
+                                <span className="font-medium">Especialista:</span>
+                                <span className="ml-2 text-muted-foreground">
+                                  {senioridadeCounts.Especialista}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        )}
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </Card>
-              ))}
+                        </TabsContent>
+                      </Tabs>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           )}
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[525px]">
-          <DialogHeader>
-            <DialogTitle>
-              {editingSubTeam ? "Editar Sub-time" : "Criar Novo Sub-time"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingSubTeam
-                ? "Atualize as informações do sub-time"
-                : `Adicione um novo sub-time ao time ${team.name}`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome do Sub-time</Label>
-              <Input
-                id="name"
-                placeholder="Ex: Spare Parts"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-              />
+          <DialogContent className="sm:max-w-[525px]">
+            <DialogHeader>
+              <DialogTitle>
+                {editingSubTeam ? "Editar Sub-time" : "Criar Novo Sub-time"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingSubTeam
+                  ? "Atualize as informações do sub-time"
+                  : "Adicione um novo sub-time ao time"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nome do Sub-time *</Label>
+                <Input
+                  id="name"
+                  placeholder="Ex: Linha SMT 1"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="coordenador">Coordenador (Líder)</Label>
+                <select
+                  id="coordenador"
+                  className="w-full border border-input rounded p-2 bg-white h-10"
+                  value={formData.coordenadorId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, coordenadorId: e.target.value })
+                  }
+                >
+                  <option value="">Selecione um coordenador (opcional)</option>
+                  {availableCoordinators.map((coord) => (
+                    <option key={coord.id} value={coord.id}>
+                      {coord.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Somente coordenadores cadastrados no sistema podem ser selecionados
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Descrição *</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Descreva as responsabilidades do sub-time..."
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  rows={3}
+                />
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Textarea
-                id="description"
-                placeholder="Descreva as responsabilidades do sub-time..."
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateOrUpdate}>
-              {editingSubTeam ? "Atualizar" : "Criar Sub-time"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCloseDialog}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateOrUpdate}>
+                {editingSubTeam ? "Salvar Alterações" : "Criar Sub-time"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   )

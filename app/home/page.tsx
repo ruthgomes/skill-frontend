@@ -110,7 +110,7 @@ export default function DashboardPage() {
       <div className="space-y-8 p-8">
         <div>
           <h1 className="text-4xl font-bold text-primary">Home</h1>
-          <p className="text-muted-foreground mt-2">Visão geral do desempenho dos técnicos</p>
+          <p className="text-muted-foreground mt-2">Visão geral do desempenho dos colaboradores</p>
         </div>
 
         {/* Stats Grid */}
@@ -121,7 +121,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{onlineCount}</div>
-              <p className="text-[10px] text-muted-foreground mt-1">técnicos ativos</p>
+              <p className="text-[10px] text-muted-foreground mt-1">colaboradores ativos</p>
             </CardContent>
           </Card>
 

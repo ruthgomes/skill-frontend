@@ -10,7 +10,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Sistema de Desempenho de Técnicos",
+  title: "Sistema de Desempenho de Colaboradores",
   description: "Gerenciamento profissional de desempenho e avaliação de habilidades",
   generator: "v0.app",
 }

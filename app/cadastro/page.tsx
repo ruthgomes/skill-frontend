@@ -15,19 +15,76 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useState } from "react"
-import { MACHINES, SKILLS, mockTeams } from "@/lib/data"
+import { useState, useEffect } from "react"
+import { MACHINES, SKILLS, mockTeams, mockSubTeams, type Senioridade, type Area } from "@/lib/data"
 import { Settings, Plus, Edit, Trash2, Upload, X } from "lucide-react"
+
+type ColaboradorForm = {
+  name: string
+  workday: string
+  cargo: string
+  senioridade: Senioridade | ""
+  area: Area | ""
+  shift: "1T" | "2T" | "3T" | ""
+  department: string
+  teamId: string
+  subtimeId: string
+  gender: "M" | "F" | ""
+}
+
+type MachineForm = {
+  name: string
+  teamId: string
+}
+
+type SkillForm = {
+  name: string
+  teamId: string
+  subtimeId: string
+}
 
 export default function CadastroPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [machineForm, setMachineForm] = useState({ name: "", code: "" })
-  const [selectedMachine, setSelectedMachine] = useState<string | null>(null)
-  const [newSkillName, setNewSkillName] = useState("")
-  const [skillForm, setSkillForm] = useState({ name: "", category: "" })
   const [machines, setMachines] = useState(MACHINES)
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
+  const [selectedMachine, setSelectedMachine] = useState<string | null>(null)
+  
+  const [colaboradorForm, setColaboradorForm] = useState<ColaboradorForm>({
+    name: "",
+    workday: "",
+    cargo: "",
+    senioridade: "",
+    area: "",
+    shift: "",
+    department: "",
+    teamId: "",
+    subtimeId: "",
+    gender: ""
+  })
+
+  const [machineForm, setMachineForm] = useState<MachineForm>({
+    name: "",
+    teamId: ""
+  })
+
+  const [skillForm, setSkillForm] = useState<SkillForm>({
+    name: "",
+    teamId: "",
+    subtimeId: ""
+  })
+
+  const [availableSubtimes, setAvailableSubtimes] = useState<any[]>([])
+
+  useEffect(() => {
+    if (colaboradorForm.teamId) {
+      const subtimes = mockSubTeams.filter(st => st.parentTeamId === colaboradorForm.teamId)
+      setAvailableSubtimes(subtimes)
+    } else {
+      setAvailableSubtimes([])
+      setColaboradorForm(prev => ({ ...prev, subtimeId: "" }))
+    }
+  }, [colaboradorForm.teamId])
 
   if (!user || user.role !== "master") {
     router.push("/")
@@ -42,20 +99,57 @@ export default function CadastroPage() {
   const selectedMachineSkills = selectedMachine ? machineSkills(selectedMachineData?.code || "") : []
 
   const handleAddMachine = () => {
-    if (!machineForm.name || !machineForm.code) {
+    if (!machineForm.name || !machineForm.teamId) {
       alert("Preencha todos os campos!")
       return
     }
 
-    const newMachine = {
-      id: `${machines.length + 1}`,
-      name: machineForm.name,
-      code: machineForm.code,
+    alert(`Máquina ${machineForm.name} cadastrada com sucesso para o time!`)
+    setMachineForm({ name: "", teamId: "" })
+  }
+
+  const handleAddSkill = () => {
+    if (!skillForm.name || !skillForm.teamId || !skillForm.subtimeId) {
+      alert("Preencha todos os campos!")
+      return
     }
 
-    setMachines([...machines, newMachine])
-    setMachineForm({ name: "", code: "" })
-    alert(`Máquina ${newMachine.name} cadastrada com sucesso!`)
+    alert(`Habilidade ${skillForm.name} cadastrada com sucesso!`)
+    setSkillForm({ name: "", teamId: "", subtimeId: "" })
+  }
+
+  const handleAddColaborador = () => {
+    if (!colaboradorForm.name || !colaboradorForm.workday || !colaboradorForm.cargo || 
+        !colaboradorForm.senioridade || !colaboradorForm.area || !colaboradorForm.shift || 
+        !colaboradorForm.department || !colaboradorForm.gender) {
+      alert("Preencha todos os campos obrigatórios!")
+      return
+    }
+
+    // Se não for Supervisor, precisa ter time e sub-time
+    if (colaboradorForm.senioridade !== "Supervisor") {
+      if (!colaboradorForm.teamId || !colaboradorForm.subtimeId) {
+        alert("Colaboradores não-supervisores precisam ter Time e Sub-time definidos!")
+        return
+      }
+    }
+
+    alert(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
+    
+    // Reset form
+    setColaboradorForm({
+      name: "",
+      workday: "",
+      cargo: "",
+      senioridade: "",
+      area: "",
+      shift: "",
+      department: "",
+      teamId: "",
+      subtimeId: "",
+      gender: ""
+    })
+    setProfilePhoto(null)
   }
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,34 +167,237 @@ export default function CadastroPage() {
     setProfilePhoto(null)
   }
 
+  const isSupervisor = colaboradorForm.senioridade === "Supervisor"
+
   return (
     <AppLayout>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-4xl font-bold text-primary">Cadastro</h1>
-          <p className="text-muted-foreground mt-2">Gerenciar máquinas, habilidades e técnicos</p>
+          <p className="text-muted-foreground mt-2">Gerenciar colaboradores, máquinas e habilidades</p>
         </div>
 
-        <Tabs defaultValue="machines" className="space-y-4 w-full">
+        <Tabs defaultValue="colaborador" className="space-y-4 w-full">
           <TabsList className="bg-secondary">
+            <TabsTrigger value="colaborador">Novo Colaborador</TabsTrigger>
             <TabsTrigger value="machines">Máquinas</TabsTrigger>
             <TabsTrigger value="skills">Habilidades</TabsTrigger>
-            <TabsTrigger value="new-operator">Novo Técnico</TabsTrigger>
-            <TabsTrigger value="new-coordinator">Novo Coordenador</TabsTrigger>
-            <TabsTrigger value="new-supervisor">Novo Supervisor</TabsTrigger>
           </TabsList>
+
+          {/* Novo Colaborador Tab */}
+          <TabsContent value="colaborador" className="space-y-4">
+            <Card className="border-primary/10">
+              <CardHeader>
+                <CardTitle>Cadastrar Novo Colaborador</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Cadastre colaboradores de todos os níveis neste formulário
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Photo Upload */}
+                <div className="flex justify-center mb-6">
+                  <div className="relative">
+                    {profilePhoto ? (
+                      <div className="relative">
+                        <img 
+                          src={profilePhoto} 
+                          alt="Foto do Colaborador" 
+                          className="w-32 h-32 rounded-full object-cover border-4 border-primary"
+                        />
+                        <button
+                          onClick={removePhoto}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer">
+                        <div className="w-32 h-32 rounded-full bg-gray-200 flex flex-col items-center justify-center border-2 border-dashed border-primary hover:bg-gray-300 transition">
+                          <Upload size={32} className="text-primary mb-2" />
+                          <span className="text-xs text-gray-600">Adicionar Foto</span>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Nome Completo <span className="text-red-500">*</span></label>
+                    <Input 
+                      placeholder="Nome completo" 
+                      className="border-primary/20"
+                      value={colaboradorForm.name}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Workday <span className="text-red-500">*</span></label>
+                    <Input 
+                      placeholder="Ex: WDC00001" 
+                      className="border-primary/20"
+                      value={colaboradorForm.workday}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, workday: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Cargo <span className="text-red-500">*</span></label>
+                    <Input 
+                      placeholder="Ex: Engenheiro de Produção" 
+                      className="border-primary/20"
+                      value={colaboradorForm.cargo}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, cargo: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Senioridade <span className="text-red-500">*</span></label>
+                    <select 
+                      className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                      value={colaboradorForm.senioridade}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, senioridade: e.target.value as Senioridade })}
+                    >
+                      <option value="">Selecione a senioridade</option>
+                      <option value="Auxiliar">Auxiliar</option>
+                      <option value="Junior">Júnior</option>
+                      <option value="Pleno">Pleno</option>
+                      <option value="Sênior">Sênior</option>
+                      <option value="Especialista">Especialista</option>
+                      <option value="Coordenador">Coordenador</option>
+                      <option value="Supervisor">Supervisor</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Área <span className="text-red-500">*</span></label>
+                    <select 
+                      className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                      value={colaboradorForm.area}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, area: e.target.value as Area })}
+                    >
+                      <option value="">Selecione a área</option>
+                      <option value="Produção">Produção</option>
+                      <option value="Manutenção">Manutenção</option>
+                      <option value="Qualidade">Qualidade</option>
+                      <option value="Engenharia">Engenharia</option>
+                      <option value="Logística">Logística</option>
+                      <option value="Administrativa">Administrativa</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Turno <span className="text-red-500">*</span></label>
+                    <select 
+                      className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                      value={colaboradorForm.shift}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, shift: e.target.value as "1T" | "2T" | "3T" })}
+                    >
+                      <option value="">Selecione o turno</option>
+                      <option value="1T">1T</option>
+                      <option value="2T">2T</option>
+                      <option value="3T">3T</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Departamento <span className="text-red-500">*</span></label>
+                    <Input 
+                      placeholder="Ex: Engenharia" 
+                      className="border-primary/20"
+                      value={colaboradorForm.department}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, department: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Gênero <span className="text-red-500">*</span></label>
+                    <select 
+                      className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                      value={colaboradorForm.gender}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, gender: e.target.value as "M" | "F" })}
+                    >
+                      <option value="">Selecione o gênero</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                    </select>
+                  </div>
+                  
+                  {!isSupervisor && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold">
+                          Time <span className="text-red-500">*</span>
+                        </label>
+                        <select 
+                          className="w-full border border-primary/20 rounded p-2 bg-white h-10"
+                          value={colaboradorForm.teamId}
+                          onChange={(e) => setColaboradorForm({ ...colaboradorForm, teamId: e.target.value })}
+                        >
+                          <option value="">Selecione um time</option>
+                          {mockTeams.filter(t => t.status === "ativo").map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold">
+                          Sub-time <span className="text-red-500">*</span>
+                        </label>
+                        <select 
+                          className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                          value={colaboradorForm.subtimeId}
+                          onChange={(e) => setColaboradorForm({ ...colaboradorForm, subtimeId: e.target.value })}
+                          disabled={!colaboradorForm.teamId}
+                        >
+                          <option value="">Selecione um sub-time</option>
+                          {availableSubtimes.map((subtime) => (
+                            <option key={subtime.id} value={subtime.id}>
+                              {subtime.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {isSupervisor && (
+                  <div className="bg-blue-50 border border-blue-200 rounded p-4 mt-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Nota:</strong> Supervisores não são alocados a times específicos. 
+                      Eles criarão seus próprios times após o cadastro.
+                    </p>
+                  </div>
+                )}
+
+                <Button 
+                  className="bg-primary hover:bg-primary/90 w-full" 
+                  onClick={handleAddColaborador}
+                >
+                  Cadastrar Colaborador
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Machines Tab */}
           <TabsContent value="machines" className="space-y-4">
-            {/* Add New Machine Form */}
             <Card className="border-primary/10">
               <CardHeader>
                 <CardTitle>Cadastrar Nova Máquina</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Cada máquina deve ser vinculada a um time específico
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Nome da Máquina</label>
+                    <label className="text-sm font-semibold">Nome da Máquina <span className="text-red-500">*</span></label>
                     <Input
                       value={machineForm.name}
                       onChange={(e) => setMachineForm({ ...machineForm, name: e.target.value })}
@@ -109,13 +406,19 @@ export default function CadastroPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Código</label>
-                    <Input
-                      value={machineForm.code}
-                      onChange={(e) => setMachineForm({ ...machineForm, code: e.target.value })}
-                      placeholder="Ex: LASER"
-                      className="border-primary/20"
-                    />
+                    <label className="text-sm font-semibold">Time <span className="text-red-500">*</span></label>
+                    <select 
+                      className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                      value={machineForm.teamId}
+                      onChange={(e) => setMachineForm({ ...machineForm, teamId: e.target.value })}
+                    >
+                      <option value="">Selecione um time</option>
+                      {mockTeams.filter(t => t.status === "ativo").map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <Button className="bg-primary hover:bg-primary/90 w-full" onClick={handleAddMachine}>
@@ -138,6 +441,7 @@ export default function CadastroPage() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {machines.map((machine) => {
                     const skillCount = machineSkills(machine.code).length
+                    const team = mockTeams.find(t => t.id === machine.teamId)
                     return (
                       <Card
                         key={machine.id}
@@ -151,7 +455,7 @@ export default function CadastroPage() {
                             </div>
                           </div>
                           <h3 className="font-bold text-lg text-primary mb-1">{machine.name}</h3>
-                          <p className="text-xs text-muted-foreground mb-3">{machine.code}</p>
+                          <p className="text-xs text-muted-foreground mb-2">{team?.name}</p>
                           <Badge variant="secondary" className="text-xs">
                             {skillCount} habilidades
                           </Badge>
@@ -168,12 +472,15 @@ export default function CadastroPage() {
           <TabsContent value="skills" className="space-y-4">
             <Card className="border-primary/10">
               <CardHeader>
-                <CardTitle>Habilidades</CardTitle>
+                <CardTitle>Cadastrar Nova Habilidade</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Cada habilidade deve ser vinculada a um time e sub-time específico
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Nome da Habilidade</label>
+                    <label className="text-sm font-semibold">Nome da Habilidade <span className="text-red-500">*</span></label>
                     <Input
                       value={skillForm.name}
                       onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })}
@@ -182,264 +489,45 @@ export default function CadastroPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Máquina/Categoria</label>
+                    <label className="text-sm font-semibold">Time <span className="text-red-500">*</span></label>
                     <select 
-                      className="w-full border border-primary/20 rounded p-2 bg-white"
-                      value={skillForm.category}
-                      onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })}
+                      className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                      value={skillForm.teamId}
+                      onChange={(e) => {
+                        setSkillForm({ ...skillForm, teamId: e.target.value, subtimeId: "" })
+                      }}
                     >
-                      <option value="">Selecione uma máquina</option>
-                      {machines.map((m) => (
-                        <option key={m.id} value={m.code}>
-                          {m.name}
+                      <option value="">Selecione um time</option>
+                      {mockTeams.filter(t => t.status === "ativo").map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
                         </option>
                       ))}
                     </select>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Sub-time <span className="text-red-500">*</span></label>
+                    <select 
+                      className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                      value={skillForm.subtimeId}
+                      onChange={(e) => setSkillForm({ ...skillForm, subtimeId: e.target.value })}
+                      disabled={!skillForm.teamId}
+                    >
+                      <option value="">Selecione um sub-time</option>
+                      {mockSubTeams
+                        .filter(st => st.parentTeamId === skillForm.teamId)
+                        .map((subtime) => (
+                          <option key={subtime.id} value={subtime.id}>
+                            {subtime.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
-                <Button className="bg-primary hover:bg-primary/90 w-full">
+                <Button className="bg-primary hover:bg-primary/90 w-full" onClick={handleAddSkill}>
                   <Plus className="mr-2 h-4 w-4" />
                   Adicionar Habilidade
                 </Button>
-
-                <div className="pt-4 border-t border-primary/10">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Para visualizar as habilidades de cada máquina, acesse a aba "Máquinas" e clique na máquina desejada.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* New Operator Tab */}
-          <TabsContent value="new-operator" className="space-y-4">
-            <Card className="border-primary/10">
-              <CardHeader>
-                <CardTitle>Cadastrar Novo Técnico</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Photo Upload */}
-                <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    {profilePhoto ? (
-                      <div className="relative">
-                        <img 
-                          src={profilePhoto} 
-                          alt="Foto do Técnico" 
-                          className="w-32 h-32 rounded-full object-cover border-4 border-primary"
-                        />
-                        <button
-                          onClick={removePhoto}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer">
-                        <div className="w-32 h-32 rounded-full bg-gray-200 flex flex-col items-center justify-center border-2 border-dashed border-primary hover:bg-gray-300 transition">
-                          <Upload size={32} className="text-primary mb-2" />
-                          <span className="text-xs text-gray-600">Adicionar Foto</span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoChange}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Nome</label>
-                    <Input placeholder="Nome completo" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Workday</label>
-                    <Input placeholder="Ex: WDC00001" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Cargo</label>
-                    <Input placeholder="Ex: Técnico de Manutenção" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Área</label>
-                    <Input placeholder="Ex: Produção" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Turno</label>
-                    <select className="w-full border border-primary/20 rounded p-2 bg-white">
-                      <option>1º Turno</option>
-                      <option>2º Turno</option>
-                      <option>3º Turno</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Time <span className="text-red-500">*</span></label>
-                    <select className="w-full border border-primary/20 rounded p-2 bg-white" required>
-                      <option value="">Selecione um time</option>
-                      {mockTeams.filter(t => t.status === "ativo").map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground italic">
-                  * Os técnicos trabalham com todas as máquinas do sistema
-                </p>
-                <Button className="bg-primary hover:bg-primary/90 w-full">Cadastrar Técnico</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* New Coordinator Tab */}
-          <TabsContent value="new-coordinator" className="space-y-4">
-            <Card className="border-primary/10">
-              <CardHeader>
-                <CardTitle>Cadastrar Novo Coordenador</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Photo Upload */}
-                <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    {profilePhoto ? (
-                      <div className="relative">
-                        <img 
-                          src={profilePhoto} 
-                          alt="Foto do Coordenador" 
-                          className="w-32 h-32 rounded-full object-cover border-4 border-primary"
-                        />
-                        <button
-                          onClick={removePhoto}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer">
-                        <div className="w-32 h-32 rounded-full bg-gray-200 flex flex-col items-center justify-center border-2 border-dashed border-primary hover:bg-gray-300 transition">
-                          <Upload size={32} className="text-primary mb-2" />
-                          <span className="text-xs text-gray-600">Adicionar Foto</span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoChange}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Nome</label>
-                    <Input placeholder="Nome completo" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Workday</label>
-                    <Input placeholder="Ex: WDC00001" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Cargo</label>
-                    <Input placeholder="Coordenador" value="Coordenador" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Área</label>
-                    <Input placeholder="Ex: Produção" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Departamento</label>
-                    <select className="w-full border border-primary/20 rounded p-2 bg-white">
-                      <option>BACKEND</option>
-                      <option>FRONTEND</option>
-                      <option>ME TESTE</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Time <span className="text-red-500">*</span></label>
-                    <select className="w-full border border-primary/20 rounded p-2 bg-white" required>
-                      <option value="">Selecione um time</option>
-                      {mockTeams.filter(t => t.status === "ativo").map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <Button className="bg-primary hover:bg-primary/90 w-full">Cadastrar Coordenador</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* New Supervisor Tab */}
-          <TabsContent value="new-supervisor" className="space-y-4">
-            <Card className="border-primary/10">
-              <CardHeader>
-                <CardTitle>Cadastrar Novo Supervisor</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Photo Upload */}
-                <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    {profilePhoto ? (
-                      <div className="relative">
-                        <img 
-                          src={profilePhoto} 
-                          alt="Foto do Supervisor" 
-                          className="w-32 h-32 rounded-full object-cover border-4 border-primary"
-                        />
-                        <button
-                          onClick={removePhoto}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="cursor-pointer">
-                        <div className="w-32 h-32 rounded-full bg-gray-200 flex flex-col items-center justify-center border-2 border-dashed border-primary hover:bg-gray-300 transition">
-                          <Upload size={32} className="text-primary mb-2" />
-                          <span className="text-xs text-gray-600">Adicionar Foto</span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoChange}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Nome</label>
-                    <Input placeholder="Nome completo" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Workday</label>
-                    <Input placeholder="Ex: WDC00001" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Cargo</label>
-                    <Input placeholder="Supervisor" value="Supervisor" className="border-primary/20" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold">Área</label>
-                    <Input placeholder="Ex: Operações" className="border-primary/20" />
-                  </div>
-                </div>
-                <Button className="bg-primary hover:bg-primary/90 w-full">Cadastrar Supervisor</Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -448,89 +536,38 @@ export default function CadastroPage() {
 
       {/* Machine Skills Modal */}
       <Dialog open={selectedMachine !== null} onOpenChange={() => setSelectedMachine(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Settings className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold">{selectedMachineData?.name}</div>
-                <div className="text-sm text-muted-foreground font-normal">
-                  Código: {selectedMachineData?.code}
-                </div>
-              </div>
+            <DialogTitle className="text-2xl text-primary">
+              {selectedMachineData?.name}
             </DialogTitle>
             <DialogDescription>
-              Gerencie as habilidades específicas desta máquina
+              Habilidades específicas desta máquina
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 mt-4">
-            {/* Add New Skill */}
-            <Card className="border-primary/20">
-              <CardHeader>
-                <CardTitle className="text-sm">Adicionar Nova Habilidade</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Nome da habilidade..."
-                    value={newSkillName}
-                    onChange={(e) => setNewSkillName(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Adicionar
-                  </Button>
+          <div className="space-y-3 mt-4">
+            {selectedMachineSkills.length > 0 ? (
+              selectedMachineSkills.map((skill, index) => (
+                <div
+                  key={skill.id}
+                  className="p-4 rounded-lg border border-primary/20 hover:border-primary/40 transition-colors bg-card"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-primary">{skill.name}</h4>
+                      <Badge variant="secondary" className="mt-2 text-xs">
+                        {skill.category}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Skills List */}
-            <div>
-              <h3 className="font-semibold mb-3 flex items-center justify-between">
-                <span>Habilidades Cadastradas</span>
-                <Badge variant="secondary">{selectedMachineSkills.length} total</Badge>
-              </h3>
-              
-              {selectedMachineSkills.length === 0 ? (
-                <Card className="border-dashed">
-                  <CardContent className="pt-6 text-center text-muted-foreground">
-                    <p>Nenhuma habilidade cadastrada para esta máquina</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-2">
-                  {selectedMachineSkills.map((skill, index) => (
-                    <Card key={skill.id} className="border-border/50 hover:border-primary/50 transition-colors">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-xs font-bold text-primary">{index + 1}</span>
-                            </div>
-                            <div>
-                              <p className="font-medium">{skill.name}</p>
-                              <p className="text-xs text-muted-foreground">ID: {skill.id}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-destructive">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Nenhuma habilidade cadastrada para esta máquina ainda.</p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

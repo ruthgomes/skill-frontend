@@ -36,8 +36,8 @@ export default function TecnicosPage() {
     <AppLayout>
       <div className="space-y-6 p-8">
         <div>
-          <h1 className="text-4xl font-bold text-primary">Técnicos</h1>
-          <p className="text-muted-foreground mt-2">Gerenciamento de técnicos do sistema</p>
+          <h1 className="text-4xl font-bold text-primary">Colaboradores</h1>
+          <p className="text-muted-foreground mt-2">Gerenciamento de colaboradores do sistema</p>
         </div>
 
         {/* Search Bar */}
@@ -57,7 +57,7 @@ export default function TecnicosPage() {
                 <select
                   value={senioridadeFilter}
                   onChange={(e) => setSenioridadeFilter(e.target.value)}
-                  className="w-full h-10 px-3 border border-primary/20 rounded-md bg-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full h-10 px-3 border border-primary/20 rounded-md bg-card text-card-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="todas">Todas as Senioridades</option>
                   <option value="Auxiliar">Auxiliar</option>
@@ -124,7 +124,7 @@ export default function TecnicosPage() {
         {filteredTecnicos.length === 0 && (
           <Card className="border-primary/10">
             <CardContent className="pt-6 text-center">
-              <p className="text-muted-foreground">Nenhum técnico encontrado</p>
+              <p className="text-muted-foreground">Nenhum colaborador encontrado</p>
             </CardContent>
           </Card>
         )}

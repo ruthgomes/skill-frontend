@@ -126,7 +126,7 @@ export default function AvaliacoesPage() {
       <div className="space-y-6 p-8">
         <div>
           <h1 className="text-4xl font-bold text-primary">Avaliações Trimestrais</h1>
-          <p className="text-muted-foreground mt-2">Avalie técnicos a cada 3 meses para acompanhar seu desenvolvimento</p>
+          <p className="text-muted-foreground mt-2">Avalie colaboradores a cada 3 meses para acompanhar seu desenvolvimento</p>
         </div>
 
         {/* Quarter Selector */}
@@ -202,9 +202,9 @@ export default function AvaliacoesPage() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{operator.workday}</span>
                           <span>•</span>
-                          <span>Máquina: {operator.machine}</span>
+                          <span>{operator.cargo}</span>
                           <span>•</span>
-                          <span>Turno: {operator.shift}º</span>
+                          <span>Turno: {operator.shift}</span>
                         </div>
                         {!canEval && (
                           <p className="text-xs text-destructive mt-2">

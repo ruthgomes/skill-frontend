@@ -35,7 +35,7 @@ export default function MeuDesempenhoPage() {
   if (!currentTecnico) {
     return (
       <AppLayout>
-        <div>Técnico não encontrado</div>
+        <div>Colaborador não encontrado</div>
       </AppLayout>
     )
   }
@@ -81,7 +81,11 @@ export default function MeuDesempenhoPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Máquina</p>
-                <p className="font-semibold text-foreground">{currentTecnico.machine}</p>
+                <p className="font-semibold text-foreground">{currentTecnico.cargo}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Área</p>
+                <p className="font-semibold text-foreground">{currentTecnico.area}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Turno</p>

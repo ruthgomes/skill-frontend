@@ -23,7 +23,7 @@ export function Sidebar() {
     { href: "/home", label: "Home", icon: "🏠" },
     { href: "/times", label: "Times", icon: "👨‍👩‍👧‍👦" },
     { href: "/cadastro", label: "Cadastro", icon: "➕" },
-    { href: "/tecnicos", label: "Técnicos", icon: "👥" },
+    { href: "/tecnicos", label: "Colaboradores", icon: "👥" },
     { href: "/dashboards", label: "Dashboards", icon: "📊" },
     { href: "/avaliacoes", label: "Avaliações", icon: "⭐" },
     { href: "/usuarios", label: "Usuários", icon: "🔐" },

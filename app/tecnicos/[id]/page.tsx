@@ -46,7 +46,7 @@ export default function TecnicoDetailPage() {
         <div className="p-8">
           <Card className="border-primary/10">
             <CardContent className="pt-6 text-center">
-              <p className="text-muted-foreground">Técnico não encontrado</p>
+              <p className="text-muted-foreground">Colaborador não encontrado</p>
               <Button onClick={() => router.push("/tecnicos")} className="mt-4">
                 Voltar
               </Button>
@@ -116,7 +116,7 @@ export default function TecnicoDetailPage() {
         {/* Back Button */}
         <Button variant="ghost" onClick={() => router.push("/tecnicos")} className="mb-4">
           <ArrowLeft className="mr-2" size={16} />
-          Voltar para Técnicos
+          Voltar para Colaboradores
         </Button>
 
         {/* Header with Photo and Basic Info */}

@@ -29,7 +29,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { mockTeams, mockSubTeams, type Team } from "@/lib/data"
+import { mockTeams, mockSubTeams, mockTecnicos, type Team } from "@/lib/data"
 import Link from "next/link"
 
 export default function TimesPage() {
@@ -42,6 +42,11 @@ export default function TimesPage() {
     department: "",
     color: "#3b82f6",
   })
+
+  const getSupervisorName = (supervisorId: string) => {
+    const supervisor = mockTecnicos.find((t) => t.id === supervisorId)
+    return supervisor ? supervisor.name : "Não definido"
+  }
 
   const handleCreateOrUpdate = () => {
     if (editingTeam) {
@@ -60,7 +65,7 @@ export default function TimesPage() {
       const newTeam: Team = {
         id: `team${teams.length + 1}`,
         ...formData,
-        managerId: "user1",
+        supervisorId: "sup1", // ID do supervisor atual (deve vir do contexto do usuário logado)
         status: "ativo",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -166,9 +171,9 @@ export default function TimesPage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   {team.description}
                 </p>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center text-sm">
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center">
                       <Users className="mr-2 h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">{getMembersCount(team.id)}</span>
                       <span className="text-muted-foreground ml-1">membros</span>
@@ -176,6 +181,10 @@ export default function TimesPage() {
                     <Badge variant="secondary">
                       {getSubTeamsCount(team.id)} sub-times
                     </Badge>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Supervisor: </span>
+                    <span className="font-semibold text-primary">{getSupervisorName(team.supervisorId)}</span>
                   </div>
                 </div>
                 <Link href={`/times/${team.id}`}>
