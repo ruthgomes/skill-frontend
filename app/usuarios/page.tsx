@@ -1,18 +1,24 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/core/contexts"
 import { useRouter } from "next/navigation"
-import { AppLayout } from "@/components/layout/app-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { mockUsers } from "@/lib/data"
+import { useEffect } from "react"
+import { AppLayout } from "@/shared/components/layout"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
+import { Badge } from "@/shared/components/ui/badge"
+import { mockUsers } from "@/shared/data"
 
 export default function UsuariosPage() {
   const { user } = useAuth()
   const router = useRouter()
 
+  useEffect(() => {
+    if (!user || user.role !== "master") {
+      router.push("/")
+    }
+  }, [user, router])
+
   if (!user || user.role !== "master") {
-    router.push("/")
     return null
   }
 

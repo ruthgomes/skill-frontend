@@ -1,13 +1,13 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/core/contexts"
 import { useRouter } from "next/navigation"
-import { AppLayout } from "@/components/layout/app-layout"
-import { mockTecnicos, type Senioridade } from "@/lib/data"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { useState } from "react"
+import { AppLayout } from "@/shared/components/layout"
+import { mockTecnicos, type Senioridade } from "@/shared/data"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
+import { Input } from "@/shared/components/ui/input"
+import { Badge } from "@/shared/components/ui/badge"
+import { useState, useEffect } from "react"
 import { Search } from "lucide-react"
 
 export default function TecnicosPage() {
@@ -16,8 +16,13 @@ export default function TecnicosPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [senioridadeFilter, setSenioridadeFilter] = useState<string>("todas")
 
+  useEffect(() => {
+    if (!user || user.role !== "master") {
+      router.push("/")
+    }
+  }, [user, router])
+
   if (!user || user.role !== "master") {
-    router.push("/")
     return null
   }
 

@@ -1,37 +1,48 @@
 "use client"
-import { AppLayout } from "@/components/layout/app-layout"
-import { useAuth } from "@/lib/auth-context"
+import { AppLayout } from "@/shared/components/layout"
+import { useAuth } from "@/core/contexts"
 import { useRouter } from "next/navigation"
-import { mockOperators } from "@/lib/data"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect } from "react"
+import { mockTecnicos } from "@/shared/data"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 
 export default function AnalyticsPage() {
   const { user } = useAuth()
   const router = useRouter()
 
-  if (!user || (user.role !== "supervisor" && user.role !== "admin")) {
-    router.push("/")
+  useEffect(() => {
+    if (!user || user.role !== "master") {
+      router.push("/")
+    }
+  }, [user, router])
+
+  if (!user || user.role !== "master") {
     return null
   }
 
-  // Satisfação por operador
-  const satisfactionData = mockOperators.map((op) => ({
-    name: op.name.split(" ")[0],
-    satisfaction: op.performance.satisfaction,
-  }))
+  // Desempenho por técnico (baseado na última nota trimestral)
+  const performanceData = mockTecnicos
+    .filter((t) => t.quarterlyNotes.length > 0)
+    .map((t) => ({
+      name: t.name.split(" ")[0],
+      score: t.quarterlyNotes[0].score,
+    }))
 
-  // Meta atingida
-  const targetData = mockOperators.map((op) => ({
-    name: op.name.split(" ")[0],
-    target: op.performance.targetMet,
-  }))
+  // Média de skills por técnico
+  const skillsData = mockTecnicos.map((t) => {
+    const skillValues = Object.values(t.skills)
+    const avgSkill = skillValues.length > 0 ? skillValues.reduce((a, b) => a + b, 0) / skillValues.length : 0
+    return {
+      name: t.name.split(" ")[0],
+      avgSkill: Math.round(avgSkill),
+    }
+  })
 
-  // Status dos operadores
+  // Status dos técnicos
   const statusData = [
-    { name: "Online", value: mockOperators.filter((op) => op.status === "online").length },
-    { name: "Offline", value: mockOperators.filter((op) => op.status === "offline").length },
-    { name: "Paused", value: mockOperators.filter((op) => op.status === "paused").length },
+    { name: "Ativo", value: mockTecnicos.filter((t) => t.status === "ativo").length },
+    { name: "Inativo", value: mockTecnicos.filter((t) => t.status === "inativo").length },
   ]
 
   const colors = ["var(--color-chart-1)", "var(--color-chart-2)", "var(--color-chart-3)"]
@@ -41,18 +52,18 @@ export default function AnalyticsPage() {
       <div className="p-8 space-y-8">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
-          <p className="text-muted-foreground mt-1">Análise detalhada de performance e métricas</p>
+          <p className="text-muted-foreground mt-1">Análise detalhada de performance e métricas dos técnicos</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Satisfação */}
+          {/* Desempenho Trimestral */}
           <Card>
             <CardHeader>
-              <CardTitle>Satisfação por Operador</CardTitle>
+              <CardTitle>Desempenho Trimestral (Última Avaliação)</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={satisfactionData}>
+                <BarChart data={performanceData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="name" stroke="var(--color-muted-foreground)" style={{ fontSize: "12px" }} />
                   <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: "12px" }} />
@@ -63,20 +74,20 @@ export default function AnalyticsPage() {
                       borderRadius: "8px",
                     }}
                   />
-                  <Bar dataKey="satisfaction" fill="var(--color-chart-1)" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="score" fill="var(--color-chart-1)" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* Meta */}
+          {/* Média de Skills */}
           <Card>
             <CardHeader>
-              <CardTitle>Meta Atingida (%)</CardTitle>
+              <CardTitle>Média de Skills por Técnico</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={targetData}>
+                <BarChart data={skillsData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="name" stroke="var(--color-muted-foreground)" style={{ fontSize: "12px" }} />
                   <YAxis stroke="var(--color-muted-foreground)" style={{ fontSize: "12px" }} />
@@ -87,7 +98,7 @@ export default function AnalyticsPage() {
                       borderRadius: "8px",
                     }}
                   />
-                  <Bar dataKey="target" fill="var(--color-chart-2)" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="avgSkill" fill="var(--color-chart-2)" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -127,26 +138,30 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          {/* Calls Summary */}
+          {/* Resumo de Skills */}
           <Card>
             <CardHeader>
-              <CardTitle>Total de Atendimentos</CardTitle>
+              <CardTitle>Total de Skills por Técnico</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {mockOperators.map((op) => (
-                <div key={op.id} className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-sm">{op.name}</div>
-                    <div className="text-xs text-muted-foreground">{op.performance.calls} chamadas</div>
+              {mockTecnicos.slice(0, 5).map((t) => {
+                const skillCount = Object.keys(t.skills).length
+                const maxSkills = 10
+                return (
+                  <div key={t.id} className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-sm">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">{skillCount} skills</div>
+                    </div>
+                    <div className="w-32 bg-muted rounded-full h-2">
+                      <div
+                        className="bg-chart-1 h-2 rounded-full"
+                        style={{ width: `${(skillCount / maxSkills) * 100}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="w-32 bg-muted rounded-full h-2">
-                    <div
-                      className="bg-chart-1 h-2 rounded-full"
-                      style={{ width: `${(op.performance.calls / 300) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </CardContent>
           </Card>
         </div>

@@ -2,22 +2,22 @@
 
 import { useState } from "react"
 import { Plus, Users, Edit, Trash2, MoreVertical, ChevronRight } from "lucide-react"
-import { AppLayout } from "@/components/layout/app-layout"
-import { Button } from "@/components/ui/button"
+import { AppLayout } from "@/shared/components/layout"
+import { Button } from "@/shared/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+} from "@/shared/components/ui/card"
+import { Badge } from "@/shared/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/shared/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -25,11 +25,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { mockTeams, mockSubTeams, mockTecnicos, type Team } from "@/lib/data"
+} from "@/shared/components/ui/dialog"
+import { Input } from "@/shared/components/ui/input"
+import { Label } from "@/shared/components/ui/label"
+import { Textarea } from "@/shared/components/ui/textarea"
+import { mockTeams, mockSubTeams, mockTecnicos, type Team } from "@/shared/data"
 import Link from "next/link"
 
 export default function TimesPage() {

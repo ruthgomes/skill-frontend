@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { AppLayout } from "@/components/layout/app-layout"
-import { useAuth } from "@/lib/auth-context"
+import { useState, useEffect } from "react"
+import { AppLayout } from "@/shared/components/layout"
+import { useAuth } from "@/core/contexts"
 import { useRouter } from "next/navigation"
-import { mockOperators } from "@/lib/data"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { mockTecnicos } from "@/shared/data"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
+import { Badge } from "@/shared/components/ui/badge"
+import { Input } from "@/shared/components/ui/input"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { Search, User } from "lucide-react"
 
@@ -15,17 +15,22 @@ export default function OperatorsPage() {
   const { user } = useAuth()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedOperator, setSelectedOperator] = useState(mockOperators[0])
+  const [selectedOperator, setSelectedOperator] = useState(mockTecnicos[0])
 
-  if (!user || (user.role !== "supervisor" && user.role !== "admin")) {
-    router.push("/")
+  useEffect(() => {
+    if (!user || user.role !== "master") {
+      router.push("/")
+    }
+  }, [user, router])
+
+  if (!user || user.role !== "master") {
     return null
   }
 
-  const filteredOperators = mockOperators.filter(
+  const filteredOperators = mockTecnicos.filter(
     (op) =>
       op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      op.workday.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
   const skillsData = Object.entries(selectedOperator.skills).map(([key, value]) => ({
@@ -37,8 +42,8 @@ export default function OperatorsPage() {
     <AppLayout>
       <div className="p-8 space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Gerenciamento de Operadores</h1>
-          <p className="text-muted-foreground mt-1">Visualize e gerencie operadores e suas métricas</p>
+          <h1 className="text-3xl font-bold text-foreground">Gerenciamento de Técnicos</h1>
+          <p className="text-muted-foreground mt-1">Visualize e gerencie técnicos e suas métricas</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -59,22 +64,27 @@ export default function OperatorsPage() {
               </div>
 
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {filteredOperators.map((op) => (
-                  <button
-                    key={op.id}
-                    onClick={() => setSelectedOperator(op)}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      selectedOperator.id === op.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                    }`}
-                  >
-                    <div className="font-medium text-sm">{op.name}</div>
-                    <div
-                      className={`text-xs ${selectedOperator.id === op.id ? "opacity-90" : "text-muted-foreground"}`}
+                {filteredOperators.map((op) => {
+                  const skillCount = Object.keys(op.skills).length
+                  return (
+                    <button
+                      key={op.id}
+                      onClick={() => setSelectedOperator(op)}
+                      className={`w-full text-left p-3 rounded-lg transition-colors ${
+                        selectedOperator.id === op.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                      }`}
                     >
-                      {op.performance.calls} atendimentos
-                    </div>
-                  </button>
-                ))}
+                      <div className="font-medium text-sm">{op.name}</div>
+                      <div
+                        className={`text-xs ${
+                          selectedOperator.id === op.id ? "opacity-90" : "text-muted-foreground"
+                        }`}
+                      >
+                        {skillCount} skills
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
@@ -89,9 +99,9 @@ export default function OperatorsPage() {
                       <User size={20} />
                       {selectedOperator.name}
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">{selectedOperator.email}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{selectedOperator.workday}</p>
                   </div>
-                  <Badge className={selectedOperator.status === "online" ? "bg-chart-1" : ""}>
+                  <Badge className={selectedOperator.status === "ativo" ? "bg-chart-1" : "bg-muted"}>
                     {selectedOperator.status}
                   </Badge>
                 </div>
@@ -100,20 +110,25 @@ export default function OperatorsPage() {
                 {/* Performance Metrics */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 bg-muted rounded-lg">
-                    <div className="text-xs text-muted-foreground">Chamadas</div>
-                    <div className="text-2xl font-bold">{selectedOperator.performance.calls}</div>
+                    <div className="text-xs text-muted-foreground">Total de Skills</div>
+                    <div className="text-2xl font-bold">{Object.keys(selectedOperator.skills).length}</div>
                   </div>
                   <div className="p-3 bg-muted rounded-lg">
-                    <div className="text-xs text-muted-foreground">Duração Média</div>
-                    <div className="text-2xl font-bold">{selectedOperator.performance.avgDuration}m</div>
+                    <div className="text-xs text-muted-foreground">Média de Skills</div>
+                    <div className="text-2xl font-bold">
+                      {Math.round(
+                        Object.values(selectedOperator.skills).reduce((a, b) => a + b, 0) /
+                          Object.values(selectedOperator.skills).length,
+                      )}
+                    </div>
                   </div>
                   <div className="p-3 bg-muted rounded-lg">
-                    <div className="text-xs text-muted-foreground">Satisfação</div>
-                    <div className="text-2xl font-bold">{selectedOperator.performance.satisfaction}</div>
+                    <div className="text-xs text-muted-foreground">Cargo</div>
+                    <div className="text-sm font-bold">{selectedOperator.cargo}</div>
                   </div>
                   <div className="p-3 bg-muted rounded-lg">
-                    <div className="text-xs text-muted-foreground">Meta</div>
-                    <div className="text-2xl font-bold">{selectedOperator.performance.targetMet}%</div>
+                    <div className="text-xs text-muted-foreground">Senioridade</div>
+                    <div className="text-sm font-bold">{selectedOperator.senioridade}</div>
                   </div>
                 </div>
 

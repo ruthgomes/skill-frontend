@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/core/contexts"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import LoginPage from "./login/page"
@@ -11,7 +11,7 @@ export default function Home() {
 
   useEffect(() => {
     if (user) {
-      router.push(user.role === "tecnico" ? "/meu-desempenho" : "/home")
+      router.push("/home")
     }
   }, [user, router])
 

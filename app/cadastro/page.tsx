@@ -1,22 +1,22 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, useNotification } from "@/core/contexts"
 import { useRouter } from "next/navigation"
-import { AppLayout } from "@/components/layout/app-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
+import { AppLayout } from "@/shared/components/layout"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Badge } from "@/shared/components/ui/badge"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/shared/components/ui/dialog"
 import { useState, useEffect } from "react"
-import { MACHINES, SKILLS, mockTeams, mockSubTeams, type Senioridade, type Area } from "@/lib/data"
+import { MACHINES, SKILLS, mockTeams, mockSubTeams, type Senioridade, type Area } from "@/shared/data"
 import { Settings, Plus, Edit, Trash2, Upload, X } from "lucide-react"
 
 type ColaboradorForm = {
@@ -45,6 +45,7 @@ type SkillForm = {
 
 export default function CadastroPage() {
   const { user } = useAuth()
+  const { success, error: showError, warning } = useNotification()
   const router = useRouter()
   const [machines, setMachines] = useState(MACHINES)
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
@@ -100,21 +101,23 @@ export default function CadastroPage() {
 
   const handleAddMachine = () => {
     if (!machineForm.name || !machineForm.teamId) {
-      alert("Preencha todos os campos!")
+      showError("Preencha todos os campos!")
       return
     }
 
-    alert(`Máquina ${machineForm.name} cadastrada com sucesso para o time!`)
+    // TODO: Integrar com backend
+    success(`Máquina ${machineForm.name} cadastrada com sucesso para o time!`)
     setMachineForm({ name: "", teamId: "" })
   }
 
   const handleAddSkill = () => {
     if (!skillForm.name || !skillForm.teamId || !skillForm.subtimeId) {
-      alert("Preencha todos os campos!")
+      showError("Preencha todos os campos!")
       return
     }
 
-    alert(`Habilidade ${skillForm.name} cadastrada com sucesso!`)
+    // TODO: Integrar com backend
+    success(`Habilidade ${skillForm.name} cadastrada com sucesso!`)
     setSkillForm({ name: "", teamId: "", subtimeId: "" })
   }
 
@@ -122,19 +125,20 @@ export default function CadastroPage() {
     if (!colaboradorForm.name || !colaboradorForm.workday || !colaboradorForm.cargo || 
         !colaboradorForm.senioridade || !colaboradorForm.area || !colaboradorForm.shift || 
         !colaboradorForm.department || !colaboradorForm.gender) {
-      alert("Preencha todos os campos obrigatórios!")
+      showError("Preencha todos os campos obrigatórios!")
       return
     }
 
     // Se não for Supervisor, precisa ter time e sub-time
     if (colaboradorForm.senioridade !== "Supervisor") {
       if (!colaboradorForm.teamId || !colaboradorForm.subtimeId) {
-        alert("Colaboradores não-supervisores precisam ter Time e Sub-time definidos!")
+        warning("Colaboradores não-supervisores precisam ter Time e Sub-time definidos!")
         return
       }
     }
 
-    alert(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
+    // TODO: Integrar com backend
+    success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
     
     // Reset form
     setColaboradorForm({

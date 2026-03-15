@@ -1,24 +1,29 @@
-# Especificação Técnica - Back-End SisOp
+# Especificação Técnica - Back-End SkillFix
 
 ## 📋 Sumário Executivo
 
-Este documento define a especificação técnica completa para o desenvolvimento do back-end do **SisOp** (Sistema de Desempenho de Operadores) utilizando **NestJS**, **Prisma**, **PostgreSQL**, **Docker** e **Swagger** para documentação da API.
+Este documento define a especificação técnica completa para o desenvolvimento do back-end do **SkillFix** (Sistema de Gestão de Competências e Desempenho) utilizando **NestJS**, **Prisma**, **PostgreSQL**, **Docker** e **Swagger** para documentação da API.
 
 ### Objetivo
-Criar uma API REST robusta, escalável e segura para gerenciar operadores, avaliações de desempenho, times, máquinas, habilidades e análises em ambiente industrial/telecom.
+Criar uma API REST robusta, escalável e segura para gerenciar colaboradores, avaliações trimestrais de desempenho, times hierárquicos (times e sub-times), máquinas, habilidades e análises de performance em ambiente industrial/telecom.
+
+### Última Atualização
+**Data**: 10 de março de 2026
+**Versão**: 2.0
 
 ## 📚 Documentação das APIs
 
 Para facilitar o desenvolvimento, cada módulo do sistema possui sua documentação detalhada:
 
-- **[AUTH_API.md](docs/AUTH_API.md)** - Autenticação, autorização, JWT, controle de acesso por roles
-- **[USERS_API.md](docs/USERS_API.md)** - CRUD de usuários, gestão administrativa, permissões, histórico
-- **[TECNICOS_API.md](docs/TECNICOS_API.md)** - CRUD de técnicos/operadores, gestão de membros, estatísticas
-- **[AVALIACOES_API.md](docs/AVALIACOES_API.md)** - Avaliações de desempenho, notas por critério, aprovações
-- **[TEAMS_API.md](docs/TEAMS_API.md)** - Gestão de times e sub-times, membros, performance de equipe
-- **[MACHINES_API.md](docs/MACHINES_API.md)** - Cadastro de máquinas, operadores, manutenção, métricas
-- **[SKILLS_API.md](docs/SKILLS_API.md)** - Habilidades, avaliações de competências, gaps, certificações
-- **[ANALYTICS_API.md](docs/ANALYTICS_API.md)** - Dashboards, rankings, relatórios, tendências, alertas
+- **[AUTH_API.md](docs/AUTH_API.md)** - Autenticação, autorização, JWT, controle de acesso por roles (MASTER, TECNICO)
+- **[USERS_API.md](docs/USERS_API.md)** - CRUD de usuários, gestão de usuários master, permissões
+- **[TECNICOS_API.md](docs/TECNICOS_API.md)** - CRUD de técnicos/colaboradores, upload de fotos, estatísticas, busca e filtros
+- **[AVALIACOES_API.md](docs/AVALIACOES_API.md)** - Sistema de avaliações trimestrais, notas por skill, cooldown de 3 meses
+- **[TEAMS_API.md](docs/TEAMS_API.md)** - Gestão de times principais, coordenadores, departamentos
+- **[SUBTIMES_API.md](docs/SUBTIMES_API.md)** - Gestão de sub-times, funções, critérios de avaliação, membros
+- **[MACHINES_API.md](docs/MACHINES_API.md)** - Cadastro de máquinas por time/sub-time
+- **[SKILLS_API.md](docs/SKILLS_API.md)** - Habilidades por máquina, sub-time e time, avaliações de competências
+- **[ANALYTICS_API.md](docs/ANALYTICS_API.md)** - Dashboards, rankings por senioridade, análises por turno e time
 
 ### Stack Tecnológica
 - **Runtime**: Node.js 20+ LTS
@@ -221,20 +226,44 @@ datasource db {
 // ==========================================
 
 enum UserRole {
-  MASTER
-  SUPERVISOR
-  TECNICO
+  MASTER      // Acesso completo: cadastros, gerenciamento, dashboards, avaliações
+  TECNICO     // Acesso limitado: visualizar histórico e performance pessoal
 }
 
 enum Shift {
-  PRIMEIRO
-  SEGUNDO
-  TERCEIRO
+  PRIMEIRO    // 1T - Primeiro Turno
+  SEGUNDO     // 2T - Segundo Turno  
+  TERCEIRO    // 3T - Terceiro Turno
 }
 
 enum Status {
   ATIVO
   INATIVO
+}
+
+enum Senioridade {
+  AUXILIAR
+  JUNIOR
+  PLENO
+  SENIOR
+  ESPECIALISTA
+  COORDENADOR // Lidera sub-times
+  SUPERVISOR  // Lidera times principais
+}
+
+enum Area {
+  PRODUCAO
+  MANUTENCAO
+  QUALIDADE
+  ENGENHARIA
+  LOGISTICA
+  ADMINISTRATIVA
+  OUTRO
+}
+
+enum Gender {
+  M  // Masculino
+  F  // Feminino
 }
 
 enum NotificationType {
@@ -252,13 +281,15 @@ enum NotificationType {
 model User {
   id            String       @id @default(uuid())
   email         String       @unique
-  password      String
+  password      String       // Hash bcrypt
   name          String
   role          UserRole     @default(TECNICO)
   status        Status       @default(ATIVO)
   
   // Relacionamentos
-  tecnico       Tecnico?
+  tecnico       Tecnico?     // Se role = TECNICO, possui dados de técnico
+  supervisedTeams Team[]     @relation("SupervisorTeams") // Se role = MASTER (supervisor)
+  coordinatedSubTeams SubTeam[] @relation("CoordinatorSubTeams") // Se coordenador
   
   // Timestamps
   createdAt     DateTime     @default(now())
@@ -291,14 +322,20 @@ model RefreshToken {
 
 model Machine {
   id          String   @id @default(uuid())
-  name        String   @unique
-  code        String   @unique
+  name        String   // Ex: LASER, PRINTER, SPI, NXT, AOI, FORNO, ROUTER, ANDA
+  code        String   @unique // Código único da máquina
   description String?
   status      Status   @default(ATIVO)
   
+  // Relacionamento com time/subtime
+  teamId      String?
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  
+  subTeamId   String?
+  subTeam     SubTeam? @relation(fields: [subTeamId], references: [id], onDelete: SetNull)
+  
   // Relacionamentos
-  tecnicos    Tecnico[]
-  skills      Skill[]
+  skills      Skill[]  // Skills específicas dessa máquina
   
   // Timestamps
   createdAt   DateTime @default(now())
@@ -313,11 +350,20 @@ model Machine {
 
 model Skill {
   id          String   @id @default(uuid())
-  name        String
-  category    String
+  name        String   // Ex: "Manutenção Preventiva", "Programação CNC"
+  category    String   // Categoria/nome da máquina
   description String?
+  
+  // Relacionamento com máquina
   machineId   String
   machine     Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  
+  // Relacionamento com time/subtime - IMPORTANTE: Skills são específicas por subtime
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  subTeamId   String
+  subTeam     SubTeam  @relation(fields: [subTeamId], references: [id], onDelete: Cascade)
   
   // Relacionamentos
   tecnicoSkills TecnicoSkill[]
@@ -326,48 +372,54 @@ model Skill {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
-  @@unique([name, machineId])
+  @@unique([name, machineId, subTeamId]) // Skill única por máquina e subtime
   @@map("skills")
 }
 
 // ==========================================
-// TÉCNICOS/OPERADORES
+// TÉCNICOS/COLABORADORES
 // ==========================================
 
 model Tecnico {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String      @id @default(uuid())
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  workday     String   @unique // ID único do operador
-  cargo       String   // Cargo/função
-  area        String   // Área de atuação
-  shift       Shift
+  // Informações básicas
+  workday     String      @unique // ID único do colaborador (ex: OP12345)
+  cargo       String      // Cargo/função (ex: "Técnico de Manutenção")
+  senioridade Senioridade // Nível hierárquico
+  area        Area        // Área de atuação
+  department  String      // Departamento (ex: "Engenharia")
+  shift       Shift       // Turno de trabalho
+  gender      Gender      // Gênero
   
-  // Máquina atribuída
-  machineId   String?
-  machine     Machine? @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  // Foto de perfil
+  photo       String?     // URL ou base64 da foto
   
-  // Time
+  // Time e Sub-time
+  // IMPORTANTE: Supervisores não têm teamId nem subteamId
   teamId      String?
-  team        Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  team        Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
   
-  // Sub-times (um técnico pode pertencer a múltiplos sub-times)
-  subTeams    SubTeamMember[]
+  subTeamId   String?
+  subTeam     SubTeam?    @relation("TecnicoSubTeam", fields: [subTeamId], references: [id], onDelete: SetNull)
+  
+  // Múltiplos sub-times (um técnico pode pertencer a vários sub-times)
+  subTeamMembers SubTeamMember[]
   
   // Habilidades do técnico
   skills      TecnicoSkill[]
   
-  // Avaliações
-  evaluations Evaluation[]
+  // Avaliações trimestrais
   quarterlyNotes QuarterlyNote[]
   
-  status      Status   @default(ATIVO)
-  joinDate    DateTime @default(now())
+  status      Status      @default(ATIVO)
+  joinDate    DateTime    @default(now()) // Data de entrada
   
   // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   
   @@map("tecnicos")
 }
@@ -393,22 +445,25 @@ model TecnicoSkill {
 }
 
 // ==========================================
-// TIMES
+// TIMES PRINCIPAIS
 // ==========================================
 
 model Team {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
-  department  String   // Ex: "Engenharia", "Manutenção", "Produção"
-  color       String?  // Código de cor para identificação visual
+  department  String   // Ex: "Engenharia", "Manutenção", "Produção", "Logística"
+  color       String?  @default("#6B7280") // Código de cor hex para identificação visual
   
-  // Gerente do time
-  managerId   String?
+  // Supervisor do time (User com role MASTER e senioridade SUPERVISOR)
+  supervisorId String?
+  supervisor   User?    @relation("SupervisorTeams", fields: [supervisorId], references: [id], onDelete: SetNull)
   
   // Relacionamentos
   tecnicos    Tecnico[]
   subTeams    SubTeam[]
+  machines    Machine[]
+  skills      Skill[]
   
   status      Status   @default(ATIVO)
   
@@ -428,17 +483,21 @@ model SubTeam {
   name          String
   description   String?
   
-  // Time pai
+  // Time pai/principal
   teamId        String
   team          Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   
-  // Líder do sub-time
-  leaderId      String?
+  // Coordenador do sub-time (User com senioridade COORDENADOR)
+  coordenadorId String?
+  coordenador   User?    @relation("CoordinatorSubTeams", fields: [coordenadorId], references: [id], onDelete: SetNull)
   
   // Relacionamentos
   members       SubTeamMember[]
   functions     TeamFunction[]
   evaluationCriteria EvaluationCriteria[]
+  machines      Machine[]
+  skills        Skill[]
+  tecnicos      Tecnico[] @relation("TecnicoSubTeam")
   
   status        Status   @default(ATIVO)
   
@@ -446,7 +505,7 @@ model SubTeam {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
-  @@unique([name, teamId])
+  @@unique([name, teamId]) // Nome único dentro do time
   @@map("sub_teams")
 }
 

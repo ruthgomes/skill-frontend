@@ -2,12 +2,12 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, useNotification } from "@/core/contexts"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Card, CardContent } from "@/shared/components/ui/card"
 import { AlertCircle } from "lucide-react"
 import Image from "next/image"
 
@@ -16,33 +16,47 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const { login, isLoading } = useAuth()
+  const { error: showErrorToast } = useNotification()
   const router = useRouter()
   const { setTheme } = useTheme()
 
   // Força o tema claro na página de login
   useEffect(() => {
     setTheme('light')
-  }, [])
+  }, [setTheme])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    
+    // Validações básicas
+    if (!email || !password) {
+      setError("Preencha todos os campos")
+      return
+    }
+
     try {
       await login(email, password)
       router.push("/home")
     } catch (err) {
-      const errorMessage = "Email ou senha inválidos"
+      const errorMessage = err instanceof Error ? err.message : "Email ou senha inválidos"
       setError(errorMessage)
+      showErrorToast(errorMessage)
     }
   }
 
   const demoAccounts = [
-    { email: "master@example.com", name: "Master/Supervisor" },
+    { 
+      email: "master@example.com", 
+      name: "Master/Supervisor",
+      hint: "Use a senha: Demo@2024!"
+    },
   ]
 
   const fillDemoAccount = (demoEmail: string) => {
     setEmail(demoEmail)
-    setPassword("password")
+    // Não preencher a senha automaticamente - usuário deve digitá-la
+    setPassword("")
   }
 
   return (
@@ -84,32 +98,36 @@ export default function LoginPage() {
             
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-900">Email</label>
+                <label htmlFor="email" className="text-xs font-medium text-gray-900">Email</label>
                 <Input
+                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="usuario@example.com"
                   disabled={isLoading}
                   required
+                  autoComplete="email"
                   className="h-10 text-sm border-gray-300 focus:border-[#005486] focus:ring-[#005486]"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-900">Senha</label>
+                <label htmlFor="password" className="text-xs font-medium text-gray-900">Senha</label>
                 <Input
+                  id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   disabled={isLoading}
                   required
+                  autoComplete="current-password"
                   className="h-10 text-sm border-gray-300 focus:border-[#005486] focus:ring-[#005486]"
                 />
               </div>
 
               {error && (
-                <div className="flex items-center gap-2 text-red-600 text-xs bg-red-50 p-2 rounded">
+                <div className="flex items-center gap-2 text-red-600 text-xs bg-red-50 p-2 rounded" role="alert">
                   <AlertCircle size={14} />
                   {error}
                 </div>
@@ -117,10 +135,7 @@ export default function LoginPage() {
 
               <Button 
                 type="submit" 
-                className="w-full h-10 text-white text-sm font-medium rounded-lg mt-3" 
-                style={{ backgroundColor: '#005486' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#004070'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#005486'}
+                className="w-full h-10 bg-[#005486] hover:bg-[#004070] text-white text-sm font-medium rounded-lg mt-3 transition-colors" 
                 disabled={isLoading}
               >
                 {isLoading ? "Entrando..." : "Entrar"}
@@ -142,14 +157,11 @@ export default function LoginPage() {
                   key={account.email}
                   type="button"
                   onClick={() => fillDemoAccount(account.email)}
-                  className="w-full p-2.5 rounded-lg transition-colors text-left"
-                  style={{ backgroundColor: '#e6f2f8' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#cce5f0'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e6f2f8'}
+                  className="w-full p-2.5 rounded-lg transition-colors text-left bg-[#e6f2f8] hover:bg-[#cce5f0]"
                 >
                   <div className="text-xs font-semibold text-gray-900">{account.name}</div>
                   <div className="text-[11px] text-gray-600 mt-0.5">{account.email}</div>
-                  <div className="text-[11px] text-gray-600">Senha: password</div>
+                  <div className="text-[11px] text-gray-500 mt-1 italic">{account.hint}</div>
                 </button>
               ))}
             </div>

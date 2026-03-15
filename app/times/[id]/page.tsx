@@ -13,22 +13,23 @@ import {
   UserCircle,
   User2,
 } from "lucide-react"
-import { AppLayout } from "@/components/layout/app-layout"
-import { Button } from "@/components/ui/button"
+import { useNotification } from "@/core/contexts"
+import { AppLayout } from "@/shared/components/layout"
+import { Button } from "@/shared/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+} from "@/shared/components/ui/card"
+import { Badge } from "@/shared/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/shared/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -36,17 +37,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from "@/shared/components/ui/dialog"
+import { Input } from "@/shared/components/ui/input"
+import { Label } from "@/shared/components/ui/label"
+import { Textarea } from "@/shared/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import {
   mockTeams,
   mockSubTeams,
   mockTecnicos,
   type SubTeam,
-} from "@/lib/data"
+} from "@/shared/data"
 import Link from "next/link"
 
 type FormData = {
@@ -58,6 +59,7 @@ type FormData = {
 export default function TeamDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { success, error: showError } = useNotification()
   const teamId = params.id as string
 
   const team = mockTeams.find((t) => t.id === teamId)
@@ -94,7 +96,7 @@ export default function TeamDetailPage() {
 
   const handleCreateOrUpdate = () => {
     if (!formData.name || !formData.description) {
-      alert("Preencha todos os campos obrigatórios!")
+      showError("Preencha todos os campos obrigatórios!")
       return
     }
 
@@ -112,6 +114,7 @@ export default function TeamDetailPage() {
             : st
         )
       )
+      success("Sub-time atualizado com sucesso!")
     } else {
       const newSubTeam: SubTeam = {
         id: `subteam${Date.now()}`,
@@ -127,6 +130,7 @@ export default function TeamDetailPage() {
         updatedAt: new Date().toISOString(),
       }
       setSubTeams([...subTeams, newSubTeam])
+      success("Sub-time criado com sucesso!")
     }
     handleCloseDialog()
   }

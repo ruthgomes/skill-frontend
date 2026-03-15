@@ -1,25 +1,35 @@
-# API de Avaliações de Desempenho - SisOp
+# API de Avaliações Trimestrais - SkillFix
 
 ## Visão Geral
 
-A API de Avaliações gerencia o sistema de avaliação de desempenho dos técnicos/operadores, incluindo avaliações trimestrais, notas por critério, observações e histórico completo.
+A API de Avaliações gerencia o sistema de avaliação trimestral dos técnicos/colaboradores, baseado em avaliação individual de skills. Cada técnico recebe avaliações a cada 3 meses, com cooldown automático para evitar avaliações muito próximas.
 
-## Estrutura da Avaliação
+> **Regra importante**: O período mínimo entre avaliações é de 3 meses (90 dias). Colaboradores recém-avaliados ficam bloqueados até que o período de cooldown expire.
+
+## Estrutura da Avaliação Trimestral (QuarterlyNote)
 
 - `id` (UUID) - Identificador único
 - `tecnicoId` (UUID) - Técnico avaliado (chave estrangeira)
-- `evaluatorId` (UUID) - Avaliador (chave estrangeira)
-- `period` (string) - Período da avaliação (ex: 2024-Q1, 2024-Q2)
-- `score` (float) - Nota geral (média ponderada, 0-100)
-- `productionScore` (float) - Nota de produção (0-100)
-- `qualityScore` (float) - Nota de qualidade (0-100)
-- `safetyScore` (float) - Nota de segurança (0-100)
-- `teamworkScore` (float) - Nota de trabalho em equipe (0-100)
-- `observations` (text) - Observações do avaliador
-- `status` (enum) - Status da avaliação (DRAFT, SUBMITTED, APPROVED, REJECTED)
-- `evaluatedAt` (datetime) - Data da avaliação
+- `quarter` (int) - Trimestre (1, 2, 3 ou 4)
+- `year` (int) - Ano da avaliação
+- `score` (float) - Pontuação geral (média das skills, 0-100)
+- `evaluatedDate` (datetime) - Data da avaliação
+- `notes` (text) - Observações gerais do avaliador
 - `createdAt` (datetime) - Data de criação
 - `updatedAt` (datetime) - Data de atualização
+
+### Relacionamentos
+- `tecnico` - Técnico avaliado (N:1)
+- `skillScores` - Pontuações individuais por skill (implícito, armazenado em `tecnico.skills`)
+
+## Sistema de Trimestres
+
+| Trimestre | Meses | Período |
+|-----------|-------|---------|
+| Q1 | Janeiro - Março | 1º Trimestre |
+| Q2 | Abril - Junho | 2º Trimestre |
+| Q3 | Julho - Setembro | 3º Trimestre |
+| Q4 | Outubro - Dezembro | 4º Trimestre |
 
 ## Endpoints da API
 
@@ -28,76 +38,139 @@ A API de Avaliações gerencia o sistema de avaliação de desempenho dos técni
 /api/avaliacoes
 ```
 
+### Endpoint Alternativo (Quarterly Notes)
+```
+/api/quarterly-notes
+```
+
 ### 🔒 Autenticação
 Todos os endpoints requerem autenticação JWT:
 ```
 Authorization: Bearer SEU_TOKEN_JWT
 ```
 
+### 🛡️ Permissões
+- **MASTER**: Criar, visualizar, editar e deletar avaliações
+- **TECNICO**: Apenas visualizar suas próprias avaliações (403 Forbidden para outras operações)
+
 ---
 
-## 📝 Criar Avaliação
+## 📝 Criar Avaliação Trimestral
 
 **POST** `/api/avaliacoes`
 
-Cria uma nova avaliação de desempenho para um técnico.
+Cria uma nova avaliação trimestral para um técnico baseada em suas skills.
+
+### Validações:
+- ✅ Técnico deve existir e estar ativo
+- ✅ Última avaliação deve ter sido há pelo menos 3 meses (90 dias)
+- ✅ Todas as skills do técnico devem ser avaliadas (score 0-100)
+- ✅ Trimestre e ano devem ser válidos
 
 ### Request Body:
 ```json
 {
   "tecnicoId": "abc12345-e89b-12d3-a456-426614174003",
-  "evaluatorId": "eval-uuid",
-  "period": "2024-Q4",
-  "productionScore": 90.0,
-  "qualityScore": 85.0,
-  "safetyScore": 92.0,
-  "teamworkScore": 87.0,
-  "observations": "Excelente desempenho no trimestre. Demonstrou grande capacidade técnica e liderança.",
-  "status": "SUBMITTED"
+  "quarter": 4,
+  "year": 2024,
+  "notes": "Excelente desempenho no trimestre. Demonstrou grande evolução em programação de máquinas PRINTER e habilidades de troubleshooting.",
+  "skillScores": {
+    "skill-uuid-1": 85.0,
+    "skill-uuid-2": 90.0,
+    "skill-uuid-3": 78.0,
+    "skill-uuid-4": 92.0,
+    "skill-uuid-5": 88.0
+  }
 }
 ```
 
 ### Campos Obrigatórios:
 - `tecnicoId`: ID do técnico a ser avaliado
-- `evaluatorId`: ID do avaliador (usuário com role SUPERVISOR ou MASTER)
-- `period`: Período no formato YYYY-QN (ex: 2024-Q1, 2024-Q2, 2024-Q3, 2024-Q4)
-- `productionScore`: Nota de produção (0-100)
-- `qualityScore`: Nota de qualidade (0-100)
-- `safetyScore`: Nota de segurança (0-100)
-- `teamworkScore`: Nota de trabalho em equipe (0-100)
+- `quarter`: Trimestre (1, 2, 3 ou 4)
+- `year`: Ano da avaliação (ex: 2024)
+- `skillScores`: Objeto com ID da skill e pontuação (0-100) para TODAS as skills do técnico
 
 ### Campos Opcionais:
-- `observations`: Observações do avaliador (máximo 2000 caracteres)
-- `status`: Status da avaliação (padrão: DRAFT)
-
-### Status Válidos:
-- `DRAFT` - Rascunho (pode ser editado)
-- `SUBMITTED` - Enviada para aprovação
-- `APPROVED` - Aprovada
-- `REJECTED` - Rejeitada (requer nova avaliação)
+- `notes`: Observações gerais (máximo 2000 caracteres)
 
 ### Cálculo do Score Geral:
-O `score` é calculado automaticamente como média ponderada:
+O `score` é calculado automaticamente como a média aritmética de todas as skills avaliadas:
 ```
-score = (productionScore * 0.35) + (qualityScore * 0.30) + 
-        (safetyScore * 0.20) + (teamworkScore * 0.15)
+score = sum(skillScores.values()) / count(skillScores)
 ```
 
 ### Response (201 Created):
 ```json
 {
-  "id": "eval-uuid-123",
+  "id": "quarterly-note-uuid-123",
   "tecnicoId": "abc12345-e89b-12d3-a456-426614174003",
-  "evaluatorId": "eval-uuid",
-  "period": "2024-Q4",
-  "score": 88.65,
-  "productionScore": 90.0,
-  "qualityScore": 85.0,
-  "safetyScore": 92.0,
-  "teamworkScore": 87.0,
-  "observations": "Excelente desempenho no trimestre...",
-  "status": "SUBMITTED",
-  "evaluatedAt": "2024-12-15T14:30:00.000Z",
+  "quarter": 4,
+  "year": 2024,
+  "score": 86.6,
+  "evaluatedDate": "2024-12-15T14:30:00.000Z",
+  "notes": "Excelente desempenho no trimestre...",
+  "createdAt": "2024-12-15T14:30:00.000Z",
+  "updatedAt": "2024-12-15T14:30:00.000Z",
+  "tecnico": {
+    "id": "abc12345-e89b-12d3-a456-426614174003",
+    "workday": "OP12345",
+    "name": "João Silva",
+    "cargo": "Técnico de Manutenção",
+    "senioridade": "PLENO",
+    "team": {
+      "id": "team-uuid",
+      "name": "Manutenção SMT"
+    },
+    "subTeam": {
+      "id": "subteam-uuid",
+      "name": "Linha SMT 1"
+    }
+  },
+  "skillScores": [
+    {
+      "skillId": "skill-uuid-1",
+      "skillName": "Programação PRINTER",
+      "score": 85.0,
+      "previousScore": 78.0,
+      "improvement": 7.0
+    },
+    {
+      "skillId": "skill-uuid-2",
+      "skillName": "Manutenção Preventiva",
+      "score": 90.0,
+      "previousScore": 85.0,
+      "improvement": 5.0
+    }
+  ],
+  "nextEvaluationDate": "2025-03-15T14:30:00.000Z"
+}
+```
+
+### Erros Comuns:
+- `400 Bad Request` - Skills ausentes ou período de cooldown não expirado
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Técnico só pode ser avaliado novamente em 2025-03-15. Última avaliação: 2024-12-15",
+    "error": "Bad Request",
+    "cooldownDays": 90,
+    "daysRemaining": 75
+  }
+  ```
+- `400 Bad Request` - Skills não avaliadas
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Todas as skills do técnico devem ser avaliadas",
+    "error": "Bad Request",
+    "missingSkills": [
+      {
+        "id": "skill-uuid-6",
+        "name": "Calibração AOI"
+      }
+    ]
+  }
+  ```
   "createdAt": "2024-12-15T14:30:00.000Z",
   "updatedAt": "2024-12-15T14:30:00.000Z",
   "tecnico": {

@@ -1,14 +1,15 @@
-# API de Autenticação e Autorização - SisOp
+# API de Autenticação e Autorização - SkillFix
 
 ## Visão Geral
 
-A API de Autenticação gerencia login, registro, tokens JWT, refresh tokens e controle de acesso baseado em roles (RBAC - Role-Based Access Control).
+A API de Autenticação gerencia login, logout, tokens JWT, refresh tokens e controle de acesso baseado em roles (RBAC - Role-Based Access Control).
 
 ## Roles do Sistema
 
-- **MASTER**: Acesso total ao sistema, gerenciamento completo
-- **SUPERVISOR**: Gerencia técnicos e times de sua área, aprova avaliações
-- **TECNICO**: Acesso limitado aos próprios dados e visualizações
+- **MASTER**: Acesso total ao sistema, gerenciamento completo (cadastros, avaliações, dashboards, times, técnicos)
+- **TECNICO**: Acesso limitado aos próprios dados (visualizar histórico pessoal, performance, rankings)
+
+> **Nota**: A role MASTER pode ter diferentes níveis de senioridade (SUPERVISOR, COORDENADOR, etc), mas o controle de acesso é feito principalmente pela role.
 
 ## Estrutura do Usuário
 
@@ -16,11 +17,13 @@ A API de Autenticação gerencia login, registro, tokens JWT, refresh tokens e c
 - `email` (string) - Email único para login
 - `password` (string) - Senha hasheada (bcrypt)
 - `name` (string) - Nome completo
-- `role` (enum) - Role/Perfil (MASTER, SUPERVISOR, TECNICO)
-- `status` (enum) - Status (ATIVO, INATIVO)
+- `role` (enum) - Role/Perfil: `MASTER` ou `TECNICO`
+- `status` (enum) - Status: `ATIVO` ou `INATIVO`
 - `createdAt` (datetime) - Data de criação
 - `updatedAt` (datetime) - Data de atualização
 - `lastLoginAt` (datetime) - Data do último login
+
+> **Importante**: Se `role = TECNICO`, o usuário terá um relacionamento 1:1 com a entidade `Tecnico` que contém informações adicionais (workday, cargo, senioridade, area, turno, team, etc).
 
 ## Endpoints da API
 
@@ -66,48 +69,40 @@ Realiza login e retorna tokens de acesso.
     "tecnico": {
       "id": "tecnico-uuid-1",
       "workday": "OP12345",
-      "cargo": "Operador de Máquina CNC",
+      "cargo": "Técnico de Manutenção",
+      "senioridade": "PLENO",
+      "area": "PRODUCAO",
+      "shift": "PRIMEIRO",
+      "department": "Engenharia",
+      "gender": "M",
+      "photo": "https://...",
       "team": {
         "id": "team-uuid-123",
-        "name": "Time Alpha"
+        "name": "Manutenção SMT"
+      },
+      "subTeam": {
+        "id": "subteam-uuid-456",
+        "name": "Linha SMT 1"
       }
     }
-  },
-  "permissions": {
-    "tecnicos": {
-      "view": true,
-      "create": false,
-      "update": false,
-      "delete": false
-    },
-    "avaliacoes": {
-      "view": true,
-      "create": false,
-      "update": false,
-      "delete": false
-    },
-    "teams": {
-      "view": true,
-      "create": false,
-      "update": false,
-      "delete": false
-    },
-    "machines": {
-      "view": true,
-      "create": false,
-      "update": false,
-      "delete": false
-    },
-    "skills": {
-      "view": true,
-      "create": false,
-      "update": false,
-      "delete": false
-    },
-    "analytics": {
-      "view": true,
-      "viewAll": false
-    }
+  }
+}
+```
+
+### Response para MASTER (200 OK):
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "user": {
+    "id": "user-uuid-789",
+    "email": "supervisor@empresa.com",
+    "name": "Carlos Oliveira",
+    "role": "MASTER",
+    "status": "ATIVO",
+    "lastLoginAt": "2024-12-16T10:00:00.000Z"
   }
 }
 ```
@@ -180,6 +175,8 @@ Authorization: Bearer {access_token}
 
 Registra um novo usuário no sistema (apenas MASTER pode executar).
 
+> **Nota**: Na aplicação atual, o cadastro de colaboradores com role TECNICO é feito através do endpoint `/api/tecnicos` que cria simultaneamente o User e o Tecnico associado. Este endpoint é mais utilizado para criar usuários MASTER.
+
 ### Headers:
 ```
 Authorization: Bearer {access_token}
@@ -188,13 +185,17 @@ Authorization: Bearer {access_token}
 ### Request Body:
 ```json
 {
-  "email": "novo.usuario@empresa.com",
+  "email": "novo.supervisor@empresa.com",
   "password": "SenhaSegura123!",
-  "name": "Novo Usuário",
-  "role": "TECNICO",
+  "name": "Novo Supervisor",
+  "role": "MASTER",
   "status": "ATIVO"
 }
 ```
+
+### Roles Disponíveis:
+- `MASTER` - Para supervisores, coordenadores e administradores
+- `TECNICO` - Para colaboradores técnicos (preferencialmente usar `/api/tecnicos`)
 
 ### Regras de Senha:
 - Mínimo 8 caracteres
@@ -207,9 +208,9 @@ Authorization: Bearer {access_token}
 ```json
 {
   "id": "user-uuid-456",
-  "email": "novo.usuario@empresa.com",
-  "name": "Novo Usuário",
-  "role": "TECNICO",
+  "email": "novo.supervisor@empresa.com",
+  "name": "Novo Supervisor",
+  "role": "MASTER",
   "status": "ATIVO",
   "createdAt": "2024-12-16T10:30:00.000Z"
 }

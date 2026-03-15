@@ -1,23 +1,37 @@
-# API de Técnicos/Operadores - SisOp
+# API de Técnicos/Colaboradores - SkillFix
 
 ## Visão Geral
 
-A API de Técnicos gerencia o cadastro completo dos operadores do sistema, incluindo informações pessoais, máquinas atribuídas, times, turnos, habilidades e histórico de avaliações.
+A API de Técnicos gerencia o cadastro completo dos colaboradores do sistema, incluindo informações pessoais, foto de perfil, senioridade, máquinas, times, sub-times, turnos, habilidades e histórico de avaliações trimestrais.
+
+> **Importante**: Supervisores e coordenadores também são cadastrados nesta API, mas com senioridade apropriada e sem vínculo obrigatório a times/sub-times.
 
 ## Estrutura do Técnico
 
 - `id` (UUID) - Identificador único
 - `userId` (UUID) - Referência ao usuário (chave estrangeira)
-- `workday` (string) - ID único do operador/técnico
-- `cargo` (string) - Cargo/função do técnico
-- `area` (string) - Área de atuação
+- `workday` (string) - ID único do colaborador (ex: OP12345)
+- `cargo` (string) - Cargo/função do colaborador
+- `senioridade` (enum) - Nível: AUXILIAR, JUNIOR, PLENO, SENIOR, ESPECIALISTA, COORDENADOR, SUPERVISOR
+- `area` (enum) - Área: PRODUCAO, MANUTENCAO, QUALIDADE, ENGENHARIA, LOGISTICA, ADMINISTRATIVA, OUTRO
+- `department` (string) - Departamento específico
 - `shift` (enum) - Turno de trabalho (PRIMEIRO, SEGUNDO, TERCEIRO)
-- `machineId` (UUID) - Máquina atribuída (opcional)
-- `teamId` (UUID) - Time principal (opcional)
+- `gender` (enum) - Gênero (M, F)
+- `photo` (string) - URL ou base64 da foto de perfil
+- `teamId` (UUID) - Time principal (opcional, null para supervisores)
+- `subTeamId` (UUID) - Sub-time (opcional, null para supervisores)
 - `status` (enum) - Status (ATIVO, INATIVO)
 - `joinDate` (datetime) - Data de entrada
 - `createdAt` (datetime) - Data de criação
 - `updatedAt` (datetime) - Data de atualização
+
+### Relacionamentos
+- `user` - Usuário associado (1:1)
+- `team` - Time principal (N:1)
+- `subTeam` - Sub-time principal (N:1)
+- `subTeamMembers[]` - Múltiplos sub-times (N:N)
+- `skills[]` - Habilidades com pontuação (N:N através de TecnicoSkill)
+- `quarterlyNotes[]` - Avaliações trimestrais (1:N)
 
 ## Endpoints da API
 
@@ -38,40 +52,72 @@ Authorization: Bearer SEU_TOKEN_JWT
 
 **POST** `/api/tecnicos`
 
-Cria um novo técnico/operador no sistema.
+Cria um novo técnico/colaborador no sistema, incluindo o User associado.
+
+> **Nota**: Este endpoint cria simultaneamente um User (com role TECNICO) e um Tecnico associado.
 
 ### Request Body:
 ```json
 {
-  "userId": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "João Silva",
+  "email": "joao.silva@empresa.com",
+  "password": "SenhaSegura123!",
   "workday": "OP12345",
-  "cargo": "Operador de Máquina CNC",
-  "area": "Produção",
+  "cargo": "Técnico de Manutenção",
+  "senioridade": "PLENO",
+  "area": "PRODUCAO",
+  "department": "Engenharia",
   "shift": "PRIMEIRO",
-  "machineId": "456e7890-e89b-12d3-a456-426614174001",
+  "gender": "M",
+  "photo": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
   "teamId": "789e0123-e89b-12d3-a456-426614174002",
+  "subTeamId": "456e7890-e89b-12d3-a456-426614174005",
   "status": "ATIVO",
   "joinDate": "2024-01-15"
 }
 ```
 
 ### Campos Obrigatórios:
-- `userId`: ID do usuário associado (deve existir na tabela de usuários)
-- `workday`: ID único do operador (ex: OP12345)
+- `name`: Nome completo do colaborador
+- `email`: Email único para login
+- `password`: Senha (mínimo 8 caracteres)
+- `workday`: ID único do colaborador (ex: OP12345, SUP001)
 - `cargo`: Cargo/função (2-255 caracteres)
-- `area`: Área de atuação (2-100 caracteres)
-- `shift`: Turno (PRIMEIRO, SEGUNDO, TERCEIRO)
+- `senioridade`: Nível hierárquico
+- `area`: Área de atuação
+- `department`: Departamento específico
+- `shift`: Turno de trabalho
+- `gender`: Gênero (M ou F)
 
 ### Campos Opcionais:
-- `machineId`: ID da máquina atribuída
-- `teamId`: ID do time principal
+- `photo`: URL ou base64 da foto de perfil
+- `teamId`: ID do time principal (obrigatório para técnicos, null para supervisores)
+- `subTeamId`: ID do sub-time (obrigatório para técnicos, null para supervisores)
 - `status`: Status (padrão: ATIVO)
 - `joinDate`: Data de entrada (padrão: data atual)
 
+### Senioridades Válidas:
+- `AUXILIAR` - Auxiliar/Assistente
+- `JUNIOR` - Júnior
+- `PLENO` - Pleno
+- `SENIOR` - Sênior
+- `ESPECIALISTA` - Especialista
+- `COORDENADOR` - Coordenador (lidera sub-times)
+- `SUPERVISOR` - Supervisor (lidera times principais)
+
+### Áreas Válidas:
+- `PRODUCAO` - Produção
+- `MANUTENCAO` - Manutenção
+- `QUALIDADE` - Qualidade
+- `ENGENHARIA` - Engenharia
+- `LOGISTICA` - Logística
+- `ADMINISTRATIVA` - Administrativa
+- `OUTRO` - Outra área
+
 ### Turnos Válidos:
-- `PRIMEIRO` - Primeiro turno (manhã)
-- `SEGUNDO` - Segundo turno (tarde)
-- `TERCEIRO` - Terceiro turno (noite)
+- `PRIMEIRO` - 1T (Primeiro turno)
+- `SEGUNDO` - 2T (Segundo turno)
+- `TERCEIRO` - 3T (Terceiro turno)
 
 ### Response (201 Created):
 ```json
@@ -79,11 +125,15 @@ Cria um novo técnico/operador no sistema.
   "id": "abc12345-e89b-12d3-a456-426614174003",
   "userId": "123e4567-e89b-12d3-a456-426614174000",
   "workday": "OP12345",
-  "cargo": "Operador de Máquina CNC",
-  "area": "Produção",
+  "cargo": "Técnico de Manutenção",
+  "senioridade": "PLENO",
+  "area": "PRODUCAO",
+  "department": "Engenharia",
   "shift": "PRIMEIRO",
-  "machineId": "456e7890-e89b-12d3-a456-426614174001",
+  "gender": "M",
+  "photo": "https://storage.exemplo.com/fotos/op12345.jpg",
   "teamId": "789e0123-e89b-12d3-a456-426614174002",
+  "subTeamId": "456e7890-e89b-12d3-a456-426614174005",
   "status": "ATIVO",
   "joinDate": "2024-01-15T00:00:00.000Z",
   "createdAt": "2024-12-12T10:30:00.000Z",
@@ -92,18 +142,23 @@ Cria um novo técnico/operador no sistema.
     "id": "123e4567-e89b-12d3-a456-426614174000",
     "name": "João Silva",
     "email": "joao.silva@empresa.com",
-    "role": "TECNICO"
-  },
-  "machine": {
-    "id": "456e7890-e89b-12d3-a456-426614174001",
-    "name": "CNC-01",
-    "code": "CNC001"
+    "role": "TECNICO",
+    "status": "ATIVO"
   },
   "team": {
     "id": "789e0123-e89b-12d3-a456-426614174002",
-    "name": "Time Alpha",
-    "department": "Produção"
-  }
+    "name": "Manutenção SMT",
+    "department": "Engenharia"
+  },
+  "subTeam": {
+    "id": "456e7890-e89b-12d3-a456-426614174005",
+    "name": "Linha SMT 1",
+    "coordenador": {
+      "id": "coord-uuid",
+      "name": "Juliana Alves"
+    }
+  },
+  "skillsCount": 0
 }
 ```
 
@@ -113,17 +168,19 @@ Cria um novo técnico/operador no sistema.
 
 **GET** `/api/tecnicos`
 
-Lista todos os técnicos com paginação e filtros opcionais.
+Lista todos os técnicos/colaboradores com paginação, busca e filtros opcionais.
 
 ### Query Parameters:
 - `page` (opcional): Número da página (padrão: 1)
 - `limit` (opcional): Itens por página (padrão: 10, máximo: 100)
-- `search` (opcional): Busca por nome, workday, cargo ou área
+- `search` (opcional): Busca por nome ou workday (case-insensitive)
 - `status` (opcional): Filtrar por status (ATIVO, INATIVO)
+- `senioridade` (opcional): Filtrar por senioridade (AUXILIAR, JUNIOR, PLENO, SENIOR, ESPECIALISTA, COORDENADOR, SUPERVISOR)
 - `shift` (opcional): Filtrar por turno (PRIMEIRO, SEGUNDO, TERCEIRO)
-- `machineId` (opcional): Filtrar por máquina atribuída
 - `teamId` (opcional): Filtrar por time
-- `area` (opcional): Filtrar por área
+- `subTeamId` (opcional): Filtrar por sub-time
+- `area` (opcional): Filtrar por área (PRODUCAO, MANUTENCAO, etc)
+- `gender` (opcional): Filtrar por gênero (M, F)
 - `sort` (opcional): Campo para ordenação (padrão: workday)
 - `order` (opcional): Direção (ASC, DESC) (padrão: ASC)
 
@@ -131,9 +188,11 @@ Lista todos os técnicos com paginação e filtros opcionais.
 ```
 GET /api/tecnicos?page=1&limit=20
 GET /api/tecnicos?search=João
-GET /api/tecnicos?shift=PRIMEIRO&status=ATIVO
+GET /api/tecnicos?senioridade=PLENO&status=ATIVO
+GET /api/tecnicos?shift=PRIMEIRO&area=PRODUCAO
 GET /api/tecnicos?teamId=789e0123-e89b-12d3-a456-426614174002
-GET /api/tecnicos?area=Produção&sort=cargo&order=DESC
+GET /api/tecnicos?subTeamId=456e7890-e89b-12d3-a456-426614174005
+GET /api/tecnicos?gender=F&sort=name&order=ASC
 ```
 
 ### Response (200 OK):
@@ -142,11 +201,14 @@ GET /api/tecnicos?area=Produção&sort=cargo&order=DESC
   "data": [
     {
       "id": "abc12345-e89b-12d3-a456-426614174003",
-      "userId": "123e4567-e89b-12d3-a456-426614174000",
       "workday": "OP12345",
-      "cargo": "Operador de Máquina CNC",
-      "area": "Produção",
+      "cargo": "Técnico de Manutenção",
+      "senioridade": "PLENO",
+      "area": "PRODUCAO",
+      "department": "Engenharia",
       "shift": "PRIMEIRO",
+      "gender": "M",
+      "photo": "https://storage.exemplo.com/fotos/op12345.jpg",
       "status": "ATIVO",
       "joinDate": "2024-01-15T00:00:00.000Z",
       "user": {

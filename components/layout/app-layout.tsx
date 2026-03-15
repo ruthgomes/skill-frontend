@@ -3,9 +3,19 @@
 import type React from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter, usePathname } from "next/navigation"
-import { BarChart3, Users, TrendingUp, LogOut, Menu, X } from "lucide-react"
+import { 
+  BarChart3, 
+  Users, 
+  TrendingUp, 
+  LogOut, 
+  Menu, 
+  X, 
+  Home,
+  UserPlus,
+  Star,
+  Shield
+} from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 import { useState } from "react"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 
@@ -25,13 +35,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const navItems = [
-    { href: "/home", label: "Home", icon: BarChart3 },
+    { href: "/home", label: "Home", icon: Home },
     { href: "/times", label: "Times", icon: Users },
-    { href: "/cadastro", label: "Cadastro", icon: BarChart3 },
+    { href: "/cadastro", label: "Cadastro", icon: UserPlus },
     { href: "/tecnicos", label: "Técnicos", icon: Users },
     { href: "/dashboards", label: "Dashboards", icon: TrendingUp },
-    { href: "/avaliacoes", label: "Avaliações", icon: BarChart3 },
-    { href: "/usuarios", label: "Usuários", icon: Users },
+    { href: "/avaliacoes", label: "Avaliações", icon: Star },
+    { href: "/usuarios", label: "Usuários", icon: Shield },
   ]
 
   return (
@@ -40,8 +50,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div
         className={`${
           sidebarOpen ? "w-64" : "w-20"
-        } border-r border-sidebar-border transition-all duration-300 flex flex-col`}
-        style={{ backgroundColor: '#262626' }}
+        } bg-[#262626] border-r border-sidebar-border transition-all duration-300 flex flex-col`}
       >
         <div className="p-4 flex items-center justify-between">
           <div className={`${sidebarOpen ? "flex" : "hidden"} items-center gap-2`}>
@@ -49,7 +58,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-sidebar-foreground hover:bg-sidebar-accent hover:bg-opacity-20 p-1 rounded"
+            className="text-sidebar-foreground hover:bg-sidebar-accent hover:bg-opacity-20 p-1 rounded transition-colors"
+            aria-label={sidebarOpen ? "Fechar sidebar" : "Abrir sidebar"}
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -64,16 +74,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <button
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                     isActive
-                      ? "text-white"
-                      : "text-sidebar-foreground"
+                      ? "bg-[#005486] text-white"
+                      : "text-sidebar-foreground hover:bg-[#005486] hover:text-white"
                   }`}
-                  style={isActive ? { backgroundColor: '#005486' } : undefined}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = '#005486'
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = ''
-                  }}
                 >
                   <Icon size={20} />
                   {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
@@ -101,7 +104,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
-        <div className="bg-card h-16 flex items-center justify-between px-6">
+        <div className="bg-card h-16 flex items-center justify-between px-6 border-b">
           <div></div>
           <div className="flex items-center gap-4">
             <ThemeToggle />

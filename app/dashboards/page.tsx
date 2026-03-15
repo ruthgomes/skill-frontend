@@ -1,17 +1,23 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/core/contexts"
 import { useRouter } from "next/navigation"
-import { AppLayout } from "@/components/layout/app-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect } from "react"
+import { AppLayout } from "@/shared/components/layout"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend } from "recharts"
 
 export default function DashboardsPage() {
   const { user } = useAuth()
   const router = useRouter()
 
+  useEffect(() => {
+    if (!user || user.role !== "master") {
+      router.push("/")
+    }
+  }, [user, router])
+
   if (!user || user.role !== "master") {
-    router.push("/")
     return null
   }
 

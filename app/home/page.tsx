@@ -1,18 +1,24 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/core/contexts"
 import { useRouter } from "next/navigation"
-import { AppLayout } from "@/components/layout/app-layout"
-import { mockTecnicos } from "@/lib/data"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect } from "react"
+import { AppLayout } from "@/shared/components/layout"
+import { mockTecnicos } from "@/shared/data"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const router = useRouter()
 
+  useEffect(() => {
+    if (!user || user.role !== "master") {
+      router.push("/")
+    }
+  }, [user, router])
+
   if (!user || user.role !== "master") {
-    router.push("/")
     return null
   }
 

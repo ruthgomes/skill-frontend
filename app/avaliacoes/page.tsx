@@ -1,15 +1,15 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
-import { AppLayout } from "@/components/layout/app-layout"
-import { mockTecnicos, SKILLS } from "@/lib/data"
+import { useAuth, useNotification } from "@/core/contexts"
+import { AppLayout } from "@/shared/components/layout"
+import { mockTecnicos, SKILLS } from "@/shared/data"
 import { useState, useMemo } from "react"
 import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
+import { Button } from "@/shared/components/ui/button"
+import { Badge } from "@/shared/components/ui/badge"
+import { Textarea } from "@/shared/components/ui/textarea"
+import { Label } from "@/shared/components/ui/label"
 
 interface EvaluationForm {
   operatorId: string
@@ -21,6 +21,7 @@ interface EvaluationForm {
 
 export default function AvaliacoesPage() {
   const { user } = useAuth()
+  const { success, error: showError } = useNotification()
   const [expandedOperator, setExpandedOperator] = useState<string | null>(null)
   const [evaluationForm, setEvaluationForm] = useState<EvaluationForm>({
     operatorId: "",
@@ -73,7 +74,7 @@ export default function AvaliacoesPage() {
 
   const handleSubmitEvaluation = () => {
     if (!expandedOperator || Object.keys(evaluationForm.skills).length === 0) {
-      alert("Por favor, avalie todas as habilidades")
+      showError("Por favor, avalie todas as habilidades")
       return
     }
 
@@ -82,6 +83,8 @@ export default function AvaliacoesPage() {
     ).toFixed(1)
 
     setSubmittedEvaluations((prev) => [...prev, expandedOperator])
+
+    const operatorName = mockTecnicos.find((op) => op.id === expandedOperator)?.name
 
     setExpandedOperator(null)
     setEvaluationForm({
@@ -92,8 +95,10 @@ export default function AvaliacoesPage() {
       year: new Date().getFullYear(),
     })
 
-    alert(
-      `Avaliação de ${mockTecnicos.find((op) => op.id === expandedOperator)?.name} registrada com sucesso!\nPontuação média: ${average}`,
+    // TODO: Integrar com backend
+    success(
+      `Avaliação de ${operatorName} registrada com sucesso! Pontuação média: ${average}`,
+      6000
     )
   }
 

@@ -1,13 +1,13 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/core/contexts"
 import { useRouter, useParams } from "next/navigation"
-import { AppLayout } from "@/components/layout/app-layout"
-import { mockTecnicos, SKILLS, mockTeams } from "@/lib/data"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AppLayout } from "@/shared/components/layout"
+import { mockTecnicos, SKILLS, mockTeams } from "@/shared/data"
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
+import { Badge } from "@/shared/components/ui/badge"
+import { Button } from "@/shared/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar"
 import {
   LineChart,
   Line,
@@ -23,7 +23,7 @@ import {
   Radar,
 } from "recharts"
 import { ArrowLeft, Calendar, Briefcase, Clock, TrendingUp, Camera, Trash2, Users } from "lucide-react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 
 export default function TecnicoDetailPage() {
   const { user } = useAuth()
@@ -33,8 +33,13 @@ export default function TecnicoDetailPage() {
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    if (!user || user.role !== "master") {
+      router.push("/")
+    }
+  }, [user, router])
+
   if (!user || user.role !== "master") {
-    router.push("/")
     return null
   }
 
