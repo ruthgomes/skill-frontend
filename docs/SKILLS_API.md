@@ -1,739 +1,418 @@
-# API de Habilidades (Skills) - SisOp
+# 🎯 SKILLS API - Gestão de Competências Técnicas
 
-## Visão Geral
+## 📋 Visão Geral
 
-A API de Habilidades gerencia as competências técnicas necessárias para operar as máquinas, avaliação de skills dos técnicos, progressão de capacitação e gaps de conhecimento.
-
-## Estrutura da Habilidade
-
-- `id` (UUID) - Identificador único
-- `name` (string) - Nome da habilidade
-- `category` (string) - Categoria da habilidade
-- `description` (text) - Descrição detalhada
-- `machineId` (UUID) - Máquina relacionada (chave estrangeira)
-- `createdAt` (datetime) - Data de criação
-- `updatedAt` (datetime) - Data de atualização
-
-## Estrutura TecnicoSkill (Relação Técnico-Habilidade)
-
-- `id` (UUID) - Identificador único
-- `tecnicoId` (UUID) - Técnico (chave estrangeira)
-- `skillId` (UUID) - Habilidade (chave estrangeira)
-- `score` (float) - Pontuação (0-100)
-- `createdAt` (datetime) - Data de avaliação inicial
-- `updatedAt` (datetime) - Data da última atualização
-
-## Endpoints da API
-
-### Base URL
-```
-/api/skills
-```
-
-### 🔒 Autenticação
-Todos os endpoints requerem autenticação JWT:
-```
-Authorization: Bearer SEU_TOKEN_JWT
-```
+Módulo para cadastro e gestão de competências técnicas (skills) associadas a máquinas, times e sub-times específicos.
 
 ---
 
-## 📝 Criar Habilidade
+## 🗄️ Entidade: Skill (TypeORM)
 
-**POST** `/api/skills`
+```typescript
+// src/modules/skills/entities/skill.entity.ts
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Machine } from '../../machines/entities/machine.entity';
+import { Team } from '../../teams/entities/team.entity';
+import { SubTeam } from '../../subtimes/entities/subteam.entity';
 
-Cria uma nova habilidade no sistema.
+@Entity('skills')
+export class Skill {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-### Request Body:
-```json
-{
-  "name": "Operação Básica CNC",
-  "category": "Técnica",
-  "description": "Conhecimento básico de operação da máquina CNC, incluindo ligar/desligar, carregamento de programas e operação supervisionada",
-  "machineId": "machine-uuid-123",
-  "requiredLevel": 70,
-  "trainingMaterial": [
-    {
-      "type": "video",
-      "title": "Introdução ao CNC",
-      "url": "https://..."
-    },
-    {
-      "type": "document",
-      "title": "Manual do Operador",
-      "url": "https://..."
-    }
-  ]
-}
-```
+  @Column()
+  name: string;
 
-### Campos Obrigatórios:
-- `name`: Nome da habilidade (2-255 caracteres)
-- `category`: Categoria (2-100 caracteres)
-- `machineId`: ID da máquina relacionada
+  @Column()
+  category: string; // Categoria (geralmente nome da máquina)
 
-### Campos Opcionais:
-- `description`: Descrição detalhada (máximo 2000 caracteres)
-- `requiredLevel`: Nível mínimo requerido (0-100, padrão: 70)
-- `trainingMaterial`: Material de treinamento (array JSON)
+  @Column({ type: 'text', nullable: true })
+  description?: string;
 
-### Categorias Comuns:
-- `Técnica` - Operação e conhecimento técnico
-- `Técnica Avançada` - Skills avançadas
-- `Programação` - Programação de equipamentos
-- `Manutenção` - Manutenção básica
-- `Segurança` - Procedimentos de segurança
-- `Qualidade` - Controle de qualidade
-- `Setup` - Preparação e configuração
+  @Column()
+  machineId: string;
 
-### Response (201 Created):
-```json
-{
-  "id": "skill-uuid-123",
-  "name": "Operação Básica CNC",
-  "category": "Técnica",
-  "description": "Conhecimento básico de operação da máquina CNC...",
-  "machineId": "machine-uuid-123",
-  "requiredLevel": 70,
-  "trainingMaterial": [...],
-  "createdAt": "2024-12-15T10:00:00.000Z",
-  "updatedAt": "2024-12-15T10:00:00.000Z",
-  "machine": {
-    "id": "machine-uuid-123",
-    "name": "CNC-01",
-    "code": "CNC001"
-  },
-  "techniciansWithSkill": 0,
-  "averageScore": 0
+  @ManyToOne(() => Machine, (machine) => machine.skills)
+  @JoinColumn({ name: 'machineId' })
+  machine: Machine;
+
+  @Column()
+  teamId: string;
+
+  @ManyToOne(() => Team)
+  @JoinColumn({ name: 'teamId' })
+  team: Team;
+
+  @Column()
+  subtimeId: string;
+
+  @ManyToOne(() => SubTeam)
+  @JoinColumn({ name: 'subtimeId' })
+  subtime: SubTeam;
+
+  @Column({ type: 'varchar', nullable: true })
+  level?: string; // Ex: "Básico", "Intermediário", "Avançado"
+
+  @Column({ type: 'jsonb', default: [] })
+  requirements?: string[]; // Requisitos para a skill
+
+  @Column({ default: true })
+  status: boolean;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
 ```
 
 ---
 
-## 📋 Listar Habilidades
+## 📥 DTOs
 
-**GET** `/api/skills`
+```typescript
+// src/modules/skills/dto/create-skill.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNotEmpty,
+  IsUUID,
+  IsOptional,
+  IsArray,
+  IsEnum,
+} from 'class-validator';
 
-Lista todas as habilidades com paginação e filtros.
+export enum SkillLevel {
+  BASICO = 'Básico',
+  INTERMEDIARIO = 'Intermediário',
+  AVANCADO = 'Avançado',
+  ESPECIALISTA = 'Especialista',
+}
 
-### Query Parameters:
-- `page` (opcional): Número da página (padrão: 1)
-- `limit` (opcional): Itens por página (padrão: 10, máximo: 100)
-- `search` (opcional): Busca por nome ou descrição
-- `category` (opcional): Filtrar por categoria
-- `machineId` (opcional): Filtrar por máquina
-- `minRequiredLevel` (opcional): Nível mínimo requerido
-- `sort` (opcional): Campo para ordenação (padrão: name)
-- `order` (opcional): Direção (ASC, DESC) (padrão: ASC)
+export class CreateSkillDto {
+  @ApiProperty({ example: 'Operação de Torno CNC' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-### Exemplos:
-```
-GET /api/skills?page=1&limit=20
-GET /api/skills?search=CNC
-GET /api/skills?category=Técnica&machineId=machine-uuid-123
-GET /api/skills?minRequiredLevel=80
-```
+  @ApiProperty({ example: 'Usinagem CNC' })
+  @IsString()
+  @IsNotEmpty()
+  category: string;
 
-### Response (200 OK):
-```json
-{
-  "data": [
-    {
-      "id": "skill-uuid-123",
-      "name": "Operação Básica CNC",
-      "category": "Técnica",
-      "description": "Conhecimento básico de operação...",
-      "requiredLevel": 70,
-      "machine": {
-        "id": "machine-uuid-123",
-        "name": "CNC-01",
-        "code": "CNC001"
-      },
-      "techniciansWithSkill": 12,
-      "averageScore": 85.5,
-      "createdAt": "2024-12-15T10:00:00.000Z"
-    }
-  ],
-  "total": 45,
-  "page": 1,
-  "limit": 10,
-  "totalPages": 5
+  @ApiProperty({
+    example: 'Capacidade de operar torno CNC com programação básica',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiProperty({ example: 'machine-uuid-123' })
+  @IsUUID()
+  @IsNotEmpty()
+  machineId: string;
+
+  @ApiProperty({ example: 'team-uuid-456' })
+  @IsUUID()
+  @IsNotEmpty()
+  teamId: string;
+
+  @ApiProperty({ example: 'subtime-uuid-789' })
+  @IsUUID()
+  @IsNotEmpty()
+  subtimeId: string;
+
+  @ApiProperty({ enum: SkillLevel, required: false })
+  @IsEnum(SkillLevel)
+  @IsOptional()
+  level?: SkillLevel;
+
+  @ApiProperty({
+    example: ['Conhecimento em programação G-code', 'Leitura de desenho técnico'],
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  requirements?: string[];
+}
+
+// src/modules/skills/dto/update-skill.dto.ts
+import { PartialType } from '@nestjs/swagger';
+import { CreateSkillDto } from './create-skill.dto';
+import { IsBoolean, IsOptional } from 'class-validator';
+
+export class UpdateSkillDto extends PartialType(CreateSkillDto) {
+  @IsBoolean()
+  @IsOptional()
+  status?: boolean;
+}
+
+// src/modules/skills/dto/query-skill.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString, IsUUID, IsEnum } from 'class-validator';
+import { SkillLevel } from './create-skill.dto';
+
+export class QuerySkillDto {
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @ApiProperty({ required: false })
+  @IsUUID()
+  @IsOptional()
+  machineId?: string;
+
+  @ApiProperty({ required: false })
+  @IsUUID()
+  @IsOptional()
+  teamId?: string;
+
+  @ApiProperty({ required: false })
+  @IsUUID()
+  @IsOptional()
+  subtimeId?: string;
+
+  @ApiProperty({ enum: SkillLevel, required: false })
+  @IsEnum(SkillLevel)
+  @IsOptional()
+  level?: SkillLevel;
+
+  @ApiProperty({ required: false, default: true })
+  @IsOptional()
+  status?: boolean;
 }
 ```
 
 ---
 
-## 🔍 Buscar Habilidade por ID
+## 🎮 Controller
 
-**GET** `/api/skills/:id`
+```typescript
+// src/modules/skills/skills.controller.ts
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { SkillsService } from './skills.service';
+import { CreateSkillDto } from './dto/create-skill.dto';
+import { UpdateSkillDto } from './dto/update-skill.dto';
+import { QuerySkillDto } from './dto/query-skill.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
-Busca uma habilidade específica com todos os detalhes.
+@ApiTags('Skills')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('skills')
+export class SkillsController {
+  constructor(private readonly skillsService: SkillsService) {}
 
-### Response (200 OK):
-```json
-{
-  "id": "skill-uuid-123",
-  "name": "Operação Básica CNC",
-  "category": "Técnica",
-  "description": "Conhecimento básico de operação da máquina CNC...",
-  "machineId": "machine-uuid-123",
-  "requiredLevel": 70,
-  "trainingMaterial": [
-    {
-      "type": "video",
-      "title": "Introdução ao CNC",
-      "url": "https://...",
-      "duration": "45 min"
-    }
-  ],
-  "createdAt": "2024-12-15T10:00:00.000Z",
-  "updatedAt": "2024-12-15T10:00:00.000Z",
-  "machine": {
-    "id": "machine-uuid-123",
-    "name": "CNC-01",
-    "code": "CNC001",
-    "manufacturer": "HAAS Automation"
-  },
-  "technicians": [
-    {
-      "id": "tecnico-skill-uuid-1",
-      "tecnico": {
-        "id": "tecnico-uuid-1",
-        "workday": "OP12345",
-        "user": {
-          "name": "João Silva"
-        },
-        "cargo": "Operador de Máquina CNC"
-      },
-      "score": 90.0,
-      "level": "Avançado",
-      "lastEvaluated": "2024-12-01T10:00:00.000Z",
-      "certified": true
-    }
-  ],
-  "statistics": {
-    "totalTechnicians": 12,
-    "averageScore": 85.5,
-    "highestScore": 95.0,
-    "lowestScore": 72.0,
-    "certified": 8,
-    "inTraining": 4,
-    "scoreDistribution": {
-      "90-100": 3,
-      "80-89": 5,
-      "70-79": 3,
-      "below-70": 1
-    }
+  @Post()
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Criar nova skill' })
+  @ApiResponse({ status: 201, description: 'Skill criada com sucesso' })
+  create(@Body() createSkillDto: CreateSkillDto) {
+    return this.skillsService.create(createSkillDto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar skills com filtros' })
+  @ApiResponse({ status: 200, description: 'Lista de skills' })
+  findAll(@Query() query: QuerySkillDto) {
+    return this.skillsService.findAll(query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar skill por ID' })
+  @ApiResponse({ status: 200, description: 'Skill encontrada' })
+  @ApiResponse({ status: 404, description: 'Skill não encontrada' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.skillsService.findOne(id);
+  }
+
+  @Get('machine/:machineId')
+  @ApiOperation({ summary: 'Listar skills de uma máquina específica' })
+  findByMachine(@Param('machineId', ParseUUIDPipe) machineId: string) {
+    return this.skillsService.findByMachine(machineId);
+  }
+
+  @Get('subtime/:subtimeId')
+  @ApiOperation({ summary: 'Listar skills de um sub-time específico' })
+  findBySubTime(@Param('subtimeId', ParseUUIDPipe) subtimeId: string) {
+    return this.skillsService.findBySubTime(subtimeId);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Atualizar skill' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateSkillDto: UpdateSkillDto,
+  ) {
+    return this.skillsService.update(id, updateSkillDto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Deletar skill (soft delete)' })
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.skillsService.remove(id);
   }
 }
 ```
 
 ---
 
-## ✏️ Atualizar Habilidade
+## ⚙️ Service
 
-**PATCH** `/api/skills/:id`
+```typescript
+// src/modules/skills/skills.service.ts
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Skill } from './entities/skill.entity';
+import { CreateSkillDto } from './dto/create-skill.dto';
+import { UpdateSkillDto } from './dto/update-skill.dto';
+import { QuerySkillDto } from './dto/query-skill.dto';
 
-Atualiza informações de uma habilidade existente.
+@Injectable()
+export class SkillsService {
+  constructor(
+    @InjectRepository(Skill)
+    private skillsRepository: Repository<Skill>,
+  ) {}
 
-### Request Body (todos os campos opcionais):
-```json
-{
-  "name": "Operação Avançada CNC",
-  "description": "Operação avançada incluindo programação e ajustes",
-  "category": "Técnica Avançada",
-  "requiredLevel": 85,
-  "trainingMaterial": [...]
-}
-```
+  async create(createSkillDto: CreateSkillDto): Promise<Skill> {
+    const skill = this.skillsRepository.create(createSkillDto);
+    return this.skillsRepository.save(skill);
+  }
 
-### Response (200 OK):
-```json
-{
-  "id": "skill-uuid-123",
-  "name": "Operação Avançada CNC",
-  "description": "Operação avançada incluindo programação e ajustes",
-  "category": "Técnica Avançada",
-  "requiredLevel": 85,
-  "updatedAt": "2024-12-15T14:30:00.000Z"
-}
-```
+  async findAll(query: QuerySkillDto): Promise<Skill[]> {
+    const { search, machineId, teamId, subtimeId, level, status } = query;
 
----
+    const queryBuilder = this.skillsRepository
+      .createQueryBuilder('skill')
+      .leftJoinAndSelect('skill.machine', 'machine')
+      .leftJoinAndSelect('skill.team', 'team')
+      .leftJoinAndSelect('skill.subtime', 'subtime');
 
-## 👤 Habilidades de um Técnico
-
-### Listar Habilidades do Técnico
-**GET** `/api/skills/tecnico/:tecnicoId`
-
-```json
-{
-  "tecnicoId": "tecnico-uuid-1",
-  "tecnico": {
-    "workday": "OP12345",
-    "user": {
-      "name": "João Silva"
-    },
-    "cargo": "Operador de Máquina CNC"
-  },
-  "skills": [
-    {
-      "id": "tecnico-skill-uuid-1",
-      "skill": {
-        "id": "skill-uuid-123",
-        "name": "Operação Básica CNC",
-        "category": "Técnica",
-        "machine": {
-          "name": "CNC-01"
-        }
-      },
-      "score": 90.0,
-      "level": "Avançado",
-      "requiredLevel": 70,
-      "gap": 0,
-      "certified": true,
-      "lastEvaluated": "2024-12-01T10:00:00.000Z"
+    if (search) {
+      queryBuilder.andWhere(
+        '(skill.name ILIKE :search OR skill.category ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
-  ],
-  "summary": {
-    "totalSkills": 8,
-    "averageScore": 86.5,
-    "certified": 6,
-    "inProgress": 2,
-    "byCategory": {
-      "Técnica": 3,
-      "Técnica Avançada": 2,
-      "Programação": 2,
-      "Segurança": 1
+
+    if (machineId) {
+      queryBuilder.andWhere('skill.machineId = :machineId', { machineId });
     }
-  },
-  "gaps": [
-    {
-      "skillName": "Programação CNC Avançada",
-      "currentScore": 65.0,
-      "requiredLevel": 80.0,
-      "gap": 15.0
+
+    if (teamId) {
+      queryBuilder.andWhere('skill.teamId = :teamId', { teamId });
     }
-  ]
-}
-```
 
-### Avaliar/Atualizar Habilidade do Técnico
-**POST** `/api/skills/tecnico/:tecnicoId/evaluate`
-
-```json
-{
-  "skillId": "skill-uuid-123",
-  "score": 88.0,
-  "evaluatorId": "evaluator-uuid",
-  "evaluationDate": "2024-12-15",
-  "observations": "Demonstrou excelente evolução na operação da máquina",
-  "certified": true
-}
-```
-
-**Response:**
-```json
-{
-  "id": "tecnico-skill-uuid-1",
-  "tecnicoId": "tecnico-uuid-1",
-  "skillId": "skill-uuid-123",
-  "score": 88.0,
-  "previousScore": 85.0,
-  "improvement": 3.0,
-  "level": "Avançado",
-  "certified": true,
-  "evaluatedBy": {
-    "name": "Maria Supervisora"
-  },
-  "evaluationDate": "2024-12-15T00:00:00.000Z",
-  "observations": "Demonstrou excelente evolução...",
-  "updatedAt": "2024-12-15T14:00:00.000Z"
-}
-```
-
-### Histórico de Avaliações de uma Habilidade
-**GET** `/api/skills/tecnico/:tecnicoId/skill/:skillId/history`
-
-```json
-{
-  "tecnicoId": "tecnico-uuid-1",
-  "skillId": "skill-uuid-123",
-  "skillName": "Operação Básica CNC",
-  "history": [
-    {
-      "date": "2024-12-15T00:00:00.000Z",
-      "score": 88.0,
-      "evaluator": "Maria Supervisora",
-      "observations": "Demonstrou excelente evolução..."
-    },
-    {
-      "date": "2024-09-10T00:00:00.000Z",
-      "score": 85.0,
-      "evaluator": "Carlos Manager",
-      "observations": "Bom progresso"
-    },
-    {
-      "date": "2024-06-05T00:00:00.000Z",
-      "score": 78.0,
-      "evaluator": "Maria Supervisora",
-      "observations": "Avaliação inicial positiva"
+    if (subtimeId) {
+      queryBuilder.andWhere('skill.subtimeId = :subtimeId', { subtimeId });
     }
-  ],
-  "progression": {
-    "initialScore": 78.0,
-    "currentScore": 88.0,
-    "totalImprovement": 10.0,
-    "improvementRate": 12.8,
-    "evaluationCount": 3
+
+    if (level) {
+      queryBuilder.andWhere('skill.level = :level', { level });
+    }
+
+    if (status !== undefined) {
+      queryBuilder.andWhere('skill.status = :status', { status });
+    }
+
+    queryBuilder.orderBy('skill.category', 'ASC').addOrderBy('skill.name', 'ASC');
+
+    return queryBuilder.getMany();
+  }
+
+  async findOne(id: string): Promise<Skill> {
+    const skill = await this.skillsRepository.findOne({
+      where: { id },
+      relations: ['machine', 'team', 'subtime'],
+    });
+
+    if (!skill) {
+      throw new NotFoundException(`Skill com ID ${id} não encontrada`);
+    }
+
+    return skill;
+  }
+
+  async findByMachine(machineId: string): Promise<Skill[]> {
+    return this.skillsRepository.find({
+      where: { machineId, status: true },
+      relations: ['team', 'subtime'],
+    });
+  }
+
+  async findBySubTime(subtimeId: string): Promise<Skill[]> {
+    return this.skillsRepository.find({
+      where: { subtimeId, status: true },
+      relations: ['machine', 'team'],
+    });
+  }
+
+  async update(id: string, updateSkillDto: UpdateSkillDto): Promise<Skill> {
+    const skill = await this.findOne(id);
+    Object.assign(skill, updateSkillDto);
+    return this.skillsRepository.save(skill);
+  }
+
+  async remove(id: string): Promise<{ message: string }> {
+    const skill = await this.findOne(id);
+    skill.status = false;
+    await this.skillsRepository.save(skill);
+    return { message: 'Skill desativada com sucesso' };
   }
 }
 ```
 
 ---
 
-## 📊 Análise de Gaps de Habilidades
+## 📍 Endpoints
 
-### Gaps por Técnico
-**GET** `/api/skills/gaps/tecnico/:tecnicoId`
-
-```json
-{
-  "tecnicoId": "tecnico-uuid-1",
-  "tecnico": {
-    "workday": "OP12345",
-    "name": "João Silva"
-  },
-  "gaps": [
-    {
-      "skillId": "skill-uuid-456",
-      "skillName": "Programação CNC Avançada",
-      "category": "Programação",
-      "currentScore": 65.0,
-      "requiredLevel": 80.0,
-      "gap": 15.0,
-      "priority": "HIGH",
-      "trainingRecommended": true,
-      "estimatedTrainingTime": "40 horas"
-    }
-  ],
-  "summary": {
-    "totalGaps": 3,
-    "criticalGaps": 1,
-    "highPriorityGaps": 2,
-    "averageGap": 12.5
-  }
-}
-```
-
-### Gaps por Máquina
-**GET** `/api/skills/gaps/machine/:machineId`
-
-```json
-{
-  "machineId": "machine-uuid-123",
-  "machineName": "CNC-01",
-  "gaps": [
-    {
-      "tecnico": {
-        "workday": "OP12345",
-        "name": "João Silva"
-      },
-      "skill": "Programação CNC Avançada",
-      "currentScore": 65.0,
-      "requiredLevel": 80.0,
-      "gap": 15.0
-    }
-  ],
-  "summary": {
-    "totalOperators": 5,
-    "fullyQualified": 2,
-    "needsTraining": 3,
-    "criticalGaps": 1
-  }
-}
-```
-
-### Gaps por Time
-**GET** `/api/skills/gaps/team/:teamId`
-
-```json
-{
-  "teamId": "team-uuid-123",
-  "teamName": "Time Alpha",
-  "gaps": [
-    {
-      "tecnico": {
-        "workday": "OP12345",
-        "name": "João Silva"
-      },
-      "skill": "Programação CNC Avançada",
-      "machine": "CNC-01",
-      "gap": 15.0,
-      "priority": "HIGH"
-    }
-  ],
-  "summary": {
-    "totalMembers": 12,
-    "averageSkillScore": 84.5,
-    "criticalGaps": 3,
-    "totalGaps": 18,
-    "skillsCoverage": 85.5
-  },
-  "recommendations": [
-    {
-      "skill": "Programação CNC Avançada",
-      "affectedTechnicians": 3,
-      "priority": "HIGH",
-      "action": "Agendar treinamento em grupo"
-    }
-  ]
-}
-```
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| POST | `/skills` | Criar skill | Master |
+| GET | `/skills` | Listar skills | Todos |
+| GET | `/skills/:id` | Buscar por ID | Todos |
+| GET | `/skills/machine/:machineId` | Listar por máquina | Todos |
+| GET | `/skills/subtime/:subtimeId` | Listar por sub-time | Todos |
+| PATCH | `/skills/:id` | Atualizar | Master |
+| DELETE | `/skills/:id` | Desativar | Master |
 
 ---
 
-## 📈 Estatísticas e Analytics
+## ✅ Checklist
 
-### Estatísticas Gerais
-**GET** `/api/skills/statistics`
-
-```json
-{
-  "overall": {
-    "totalSkills": 45,
-    "totalTechnicians": 50,
-    "averageSkillsPerTechnician": 6.8,
-    "averageScore": 82.5,
-    "totalCertified": 220
-  },
-  "byCategory": {
-    "Técnica": {
-      "count": 15,
-      "averageScore": 85.2
-    },
-    "Técnica Avançada": {
-      "count": 10,
-      "averageScore": 78.5
-    },
-    "Programação": {
-      "count": 8,
-      "averageScore": 80.1
-    },
-    "Segurança": {
-      "count": 12,
-      "averageScore": 90.5
-    }
-  },
-  "byMachine": {
-    "CNC-01": {
-      "skillCount": 8,
-      "qualifiedTechnicians": 12,
-      "averageScore": 86.5
-    }
-  },
-  "trends": {
-    "improvingSkills": 30,
-    "decliningSkills": 5,
-    "stableSkills": 10
-  }
-}
-```
-
-### Top Habilidades Dominadas
-**GET** `/api/skills/top-performers`
-
-Query Parameters:
-- `skillId`: ID da habilidade
-- `limit`: Número de técnicos (padrão: 10)
-
-```json
-{
-  "skillId": "skill-uuid-123",
-  "skillName": "Operação Básica CNC",
-  "topPerformers": [
-    {
-      "rank": 1,
-      "tecnico": {
-        "workday": "OP12345",
-        "name": "João Silva"
-      },
-      "score": 95.0,
-      "certified": true,
-      "lastEvaluated": "2024-12-01T10:00:00.000Z"
-    }
-  ]
-}
-```
-
-### Habilidades Mais Requisitadas
-**GET** `/api/skills/most-required`
-
-```json
-{
-  "skills": [
-    {
-      "id": "skill-uuid-123",
-      "name": "Operação Básica CNC",
-      "category": "Técnica",
-      "machinesCount": 5,
-      "techniciansWithSkill": 12,
-      "averageScore": 85.5,
-      "demand": "HIGH"
-    }
-  ]
-}
-```
-
----
-
-## 🎓 Certificações
-
-### Listar Certificações do Técnico
-**GET** `/api/skills/tecnico/:tecnicoId/certifications`
-
-```json
-{
-  "tecnicoId": "tecnico-uuid-1",
-  "certifications": [
-    {
-      "skill": "Operação Básica CNC",
-      "score": 90.0,
-      "certifiedDate": "2024-12-01T00:00:00.000Z",
-      "expiresAt": "2025-12-01T00:00:00.000Z",
-      "certifiedBy": "Maria Supervisora",
-      "status": "ACTIVE"
-    }
-  ],
-  "summary": {
-    "total": 6,
-    "active": 5,
-    "expired": 1,
-    "expiringSoon": 2
-  }
-}
-```
-
-### Certificar Técnico
-**POST** `/api/skills/tecnico/:tecnicoId/certify`
-
-```json
-{
-  "skillId": "skill-uuid-123",
-  "certifiedById": "evaluator-uuid",
-  "expiresAt": "2025-12-15",
-  "notes": "Aprovado após avaliação prática"
-}
-```
-
-### Renovar Certificação
-**PATCH** `/api/skills/certifications/:id/renew`
-
-```json
-{
-  "expiresAt": "2026-12-15"
-}
-```
-
----
-
-## 📚 Material de Treinamento
-
-### Listar Material de uma Habilidade
-**GET** `/api/skills/:id/training-material`
-
-```json
-{
-  "skillId": "skill-uuid-123",
-  "skillName": "Operação Básica CNC",
-  "materials": [
-    {
-      "id": "material-uuid-1",
-      "type": "video",
-      "title": "Introdução ao CNC",
-      "url": "https://...",
-      "duration": "45 min",
-      "language": "pt-BR",
-      "completions": 35
-    },
-    {
-      "id": "material-uuid-2",
-      "type": "document",
-      "title": "Manual do Operador",
-      "url": "https://...",
-      "pages": 120,
-      "downloads": 50
-    }
-  ]
-}
-```
-
-### Adicionar Material
-**POST** `/api/skills/:id/training-material`
-
-```json
-{
-  "type": "video",
-  "title": "Setup Avançado",
-  "url": "https://...",
-  "duration": "60 min",
-  "language": "pt-BR"
-}
-```
-
----
-
-## ❌ Excluir Habilidade
-
-**DELETE** `/api/skills/:id`
-
-Remove uma habilidade do sistema.
-
-### Regras:
-- Apenas habilidades sem técnicos avaliados podem ser excluídas
-- Habilidades com histórico são apenas desativadas
-
-### Response (200 OK):
-```json
-{
-  "message": "Habilidade removida com sucesso",
-  "id": "skill-uuid-123"
-}
-```
-
----
-
-## ⚠️ Códigos de Erro
-
-- `400 Bad Request` - Dados inválidos ou campos obrigatórios ausentes
-- `401 Unauthorized` - Token JWT inválido ou ausente
-- `403 Forbidden` - Sem permissão para gerenciar habilidades
-- `404 Not Found` - Habilidade não encontrada
-- `409 Conflict` - Habilidade já existe para esta máquina ou possui avaliações
-- `422 Unprocessable Entity` - Score inválido (fora do range 0-100)
-- `500 Internal Server Error` - Erro interno do servidor
-
----
-
-## 📝 Observações Importantes
-
-1. **Score Range**: Todos os scores devem estar entre 0 e 100
-2. **Níveis de Proficiência**:
-   - 0-49: Iniciante
-   - 50-69: Básico
-   - 70-84: Intermediário
-   - 85-94: Avançado
-   - 95-100: Expert
-3. **Certificação**: Geralmente requer score ≥ 85
-4. **Gap Analysis**: Diferença entre score atual e nível requerido
-5. **Prioridades de Gap**:
-   - CRITICAL: gap > 30 pontos
-   - HIGH: gap 15-30 pontos
-   - MEDIUM: gap 5-15 pontos
-   - LOW: gap < 5 pontos
-6. **Progressão**: Histórico completo de avaliações é mantido
-7. **Permissões**:
-   - `MASTER`: Acesso total e pode certificar
-   - `SUPERVISOR`: Pode avaliar técnicos de sua área
-   - `TECNICO`: Visualiza apenas suas próprias habilidades
-8. **Renovação**: Certificações podem ter data de expiração
+- [ ] Criar entidade Skill
+- [ ] Implementar relacionamentos
+- [ ] Criar migration
+- [ ] Implementar filtros avançados
+- [ ] Testar CRUD completo

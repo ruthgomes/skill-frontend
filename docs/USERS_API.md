@@ -1,161 +1,85 @@
-# API de Usuários - SisOp
+# 👥 USERS API - Gerenciamento de Usuários
 
-## Visão Geral
+## 📋 Visão Geral
 
-A API de Usuários gerencia o cadastro e controle de todos os usuários do sistema, incluindo administradores (MASTER), supervisores (SUPERVISOR) e técnicos (TECNICO).
-
-## Estrutura do Usuário
-
-- `id` (UUID) - Identificador único
-- `email` (string) - Email único para login
-- `password` (string) - Senha hasheada (bcrypt)
-- `name` (string) - Nome completo do usuário
-- `role` (enum) - Role/Perfil (MASTER, SUPERVISOR, TECNICO)
-- `status` (enum) - Status (ATIVO, INATIVO)
-- `createdAt` (datetime) - Data de criação
-- `updatedAt` (datetime) - Data de atualização
-- `lastLoginAt` (datetime) - Data do último login
-- `tecnico` (objeto) - Dados do técnico (se role = TECNICO)
-
-## Endpoints da API
-
-### Base URL
-```
-/api/users
-```
-
-### 🔒 Autenticação
-Todos os endpoints requerem autenticação JWT:
-```
-Authorization: Bearer SEU_TOKEN_JWT
-```
-
-### 🛡️ Permissões
-- **MASTER**: Acesso total a todos os endpoints
-- **SUPERVISOR**: Apenas visualização de usuários
-- **TECNICO**: Sem acesso (403 Forbidden)
+Módulo de gerenciamento completo de usuários do sistema (separado de autenticação).
 
 ---
 
-## 📝 Criar Usuário
+## 🗄️ Entidade: User (Referência)
 
-**POST** `/api/users`
+```typescript
+// Já definida em AUTH_API.md
+// src/modules/users/entities/user.entity.ts
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  BeforeInsert,
+  BeforeUpdate,
+} from 'typeorm';
+import * as bcrypt from 'bcrypt';
 
-Cria um novo usuário no sistema (apenas MASTER).
-
-### Request Body:
-```json
-{
-  "email": "novo.usuario@empresa.com",
-  "password": "SenhaSegura123!",
-  "name": "Carlos Manager",
-  "role": "SUPERVISOR",
-  "status": "ATIVO"
+export enum UserRole {
+  MASTER = 'master',
+  SUPERVISOR = 'supervisor',
 }
-```
 
-### Campos Obrigatórios:
-- `email`: Email único e válido
-- `password`: Senha forte (mín. 8 caracteres, 1 maiúscula, 1 minúscula, 1 número, 1 especial)
-- `name`: Nome completo (2-255 caracteres)
-- `role`: Role do usuário (MASTER, SUPERVISOR, TECNICO)
-
-### Campos Opcionais:
-- `status`: Status (padrão: ATIVO)
-
-### Roles Disponíveis:
-- `MASTER` - Acesso total ao sistema
-- `SUPERVISOR` - Gerencia técnicos e times de sua área
-- `TECNICO` - Operador técnico (requer criação de Técnico associado)
-
-### Response (201 Created):
-```json
-{
-  "id": "user-uuid-456",
-  "email": "novo.usuario@empresa.com",
-  "name": "Carlos Manager",
-  "role": "SUPERVISOR",
-  "status": "ATIVO",
-  "createdAt": "2024-12-16T10:30:00.000Z",
-  "updatedAt": "2024-12-16T10:30:00.000Z",
-  "lastLoginAt": null
+export enum Workday {
+  DIURNO = 'diurno',
+  NOTURNO = 'noturno',
 }
-```
 
-### Observações:
-- Se `role = TECNICO`, será necessário criar um Técnico associado posteriormente via `/api/tecnicos`
-- Email deve ser único no sistema
-- Senha é automaticamente hasheada com bcrypt
+@Entity('users')
+export class User {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
----
+  @Column({ unique: true })
+  email: string;
 
-## 📋 Listar Usuários
+  @Column()
+  password: string;
 
-**GET** `/api/users`
+  @Column()
+  name: string;
 
-Lista todos os usuários com paginação e filtros.
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.SUPERVISOR,
+  })
+  role: UserRole;
 
-### Query Parameters:
-- `page` (opcional): Número da página (padrão: 1)
-- `limit` (opcional): Itens por página (padrão: 10, máximo: 100)
-- `search` (opcional): Busca por nome ou email
-- `role` (opcional): Filtrar por role (MASTER, SUPERVISOR, TECNICO)
-- `status` (opcional): Filtrar por status (ATIVO, INATIVO)
-- `hasLogin` (opcional): true/false - Usuários que já fizeram login
-- `sort` (opcional): Campo para ordenação (padrão: name)
-- `order` (opcional): Direção (ASC, DESC) (padrão: ASC)
+  @Column({
+    type: 'enum',
+    enum: Workday,
+    nullable: true,
+  })
+  workday?: Workday;
 
-### Exemplos:
-```
-GET /api/users?page=1&limit=20
-GET /api/users?search=carlos
-GET /api/users?role=SUPERVISOR&status=ATIVO
-GET /api/users?hasLogin=false
-```
+  @Column({ default: true })
+  isActive: boolean;
 
-### Response (200 OK):
-```json
-{
-  "data": [
-    {
-      "id": "user-uuid-456",
-      "email": "carlos.manager@empresa.com",
-      "name": "Carlos Manager",
-      "role": "SUPERVISOR",
-      "status": "ATIVO",
-      "lastLoginAt": "2024-12-15T18:30:00.000Z",
-      "createdAt": "2024-01-10T10:00:00.000Z",
-      "tecnico": null
-    },
-    {
-      "id": "user-uuid-123",
-      "email": "joao.silva@empresa.com",
-      "name": "João Silva",
-      "role": "TECNICO",
-      "status": "ATIVO",
-      "lastLoginAt": "2024-12-16T08:00:00.000Z",
-      "createdAt": "2024-01-15T10:00:00.000Z",
-      "tecnico": {
-        "id": "tecnico-uuid-1",
-        "workday": "OP12345",
-        "cargo": "Operador de Máquina CNC",
-        "team": {
-          "name": "Time Alpha"
-        }
-      }
-    }
-  ],
-  "total": 52,
-  "page": 1,
-  "limit": 10,
-  "totalPages": 6,
-  "summary": {
-    "totalActive": 48,
-    "totalInactive": 4,
-    "byRole": {
-      "MASTER": 2,
-      "SUPERVISOR": 10,
-      "TECNICO": 40
+  @Column({ type: 'timestamp', nullable: true })
+  lastLogin?: Date;
+
+  @Column({ nullable: true })
+  refreshToken?: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  async hashPassword() {
+    if (this.password && !this.password.startsWith('$2b$')) {
+      this.password = await bcrypt.hash(this.password, 10);
     }
   }
 }
@@ -163,481 +87,564 @@ GET /api/users?hasLogin=false
 
 ---
 
-## 🔍 Buscar Usuário por ID
+## 📥 DTOs
 
-**GET** `/api/users/:id`
+### User DTOs
 
-Busca um usuário específico com todos os detalhes.
+```typescript
+// src/modules/users/dto/create-user.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsEnum,
+  IsOptional,
+} from 'class-validator';
+import { UserRole, Workday } from '../entities/user.entity';
 
-### Response (200 OK):
-```json
-{
-  "id": "user-uuid-123",
-  "email": "joao.silva@empresa.com",
-  "name": "João Silva",
-  "role": "TECNICO",
-  "status": "ATIVO",
-  "createdAt": "2024-01-15T10:00:00.000Z",
-  "updatedAt": "2024-12-16T08:00:00.000Z",
-  "lastLoginAt": "2024-12-16T08:00:00.000Z",
-  "tecnico": {
-    "id": "tecnico-uuid-1",
-    "workday": "OP12345",
-    "cargo": "Operador de Máquina CNC",
-    "area": "Produção",
-    "shift": "PRIMEIRO",
-    "status": "ATIVO",
-    "team": {
-      "id": "team-uuid-123",
-      "name": "Time Alpha"
-    },
-    "machine": {
-      "id": "machine-uuid-123",
-      "name": "CNC-01",
-      "code": "CNC001"
-    },
-    "performanceScore": 88.5
-  },
-  "loginHistory": [
-    {
-      "timestamp": "2024-12-16T08:00:00.000Z",
-      "ipAddress": "192.168.1.100",
-      "device": "Chrome 120 on Windows 10"
-    },
-    {
-      "timestamp": "2024-12-15T08:00:00.000Z",
-      "ipAddress": "192.168.1.100",
-      "device": "Chrome 120 on Windows 10"
-    }
-  ]
+export class CreateUserDto {
+  @ApiProperty({ example: 'joao.silva@empresa.com' })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: 'Senha@123', minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @IsNotEmpty()
+  password: string;
+
+  @ApiProperty({ example: 'João Silva' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ enum: UserRole, default: UserRole.SUPERVISOR })
+  @IsEnum(UserRole)
+  @IsOptional()
+  role?: UserRole;
+
+  @ApiProperty({ enum: Workday, required: false })
+  @IsEnum(Workday)
+  @IsOptional()
+  workday?: Workday;
+}
+
+// src/modules/users/dto/update-user.dto.ts
+import { PartialType, OmitType } from '@nestjs/swagger';
+import { CreateUserDto } from './create-user.dto';
+
+export class UpdateUserDto extends PartialType(
+  OmitType(CreateUserDto, ['password'] as const),
+) {}
+
+// src/modules/users/dto/query-user.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsEnum, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { UserRole } from '../entities/user.entity';
+
+export class QueryUserDto {
+  @ApiProperty({ required: false })
+  @Type(() => Number)
+  @IsOptional()
+  page?: number = 1;
+
+  @ApiProperty({ required: false })
+  @Type(() => Number)
+  @IsOptional()
+  limit?: number = 20;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @ApiProperty({ required: false, enum: UserRole })
+  @IsEnum(UserRole)
+  @IsOptional()
+  role?: UserRole;
+
+  @ApiProperty({ required: false })
+  @Type(() => Boolean)
+  @IsOptional()
+  isActive?: boolean;
+}
+
+// src/modules/users/dto/change-password.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+
+export class ChangePasswordDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @ApiProperty({ minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @IsNotEmpty()
+  newPassword: string;
+}
+
+// src/modules/users/dto/reset-password.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty } from 'class-validator';
+
+export class ResetPasswordDto {
+  @ApiProperty()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
 }
 ```
 
 ---
 
-## 🔍 Buscar Usuário por Email
+## 🎮 Controller
 
-**GET** `/api/users/email/:email`
+```typescript
+// src/modules/users/users.controller.ts
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { QueryUserDto } from './dto/query-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from './entities/user.entity';
 
-Busca um usuário pelo email.
+@ApiTags('Users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('users')
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
 
-**Exemplo:** `GET /api/users/email/joao.silva@empresa.com`
+  @Post()
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Criar novo usuário' })
+  create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
+  }
 
----
+  @Get()
+  @ApiOperation({ summary: 'Listar usuários com filtros e paginação' })
+  findAll(@Query() query: QueryUserDto) {
+    return this.usersService.findAll(query);
+  }
 
-## ✏️ Atualizar Usuário
+  @Get('profile')
+  @ApiOperation({ summary: 'Obter perfil do usuário logado' })
+  getProfile(@Request() req) {
+    return this.usersService.findOne(req.user.id);
+  }
 
-**PATCH** `/api/users/:id`
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar usuário por ID' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.findOne(id);
+  }
 
-Atualiza informações de um usuário existente (apenas MASTER).
+  @Patch('profile')
+  @ApiOperation({ summary: 'Atualizar próprio perfil' })
+  updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(req.user.id, updateUserDto);
+  }
 
-### Request Body (todos os campos opcionais):
-```json
-{
-  "name": "João Silva Santos",
-  "email": "joao.santos@empresa.com",
-  "role": "SUPERVISOR",
-  "status": "ATIVO"
-}
-```
+  @Patch(':id')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Atualizar usuário (admin)' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.update(id, updateUserDto);
+  }
 
-### Regras:
-- Não é possível alterar a senha por este endpoint (use `/api/auth/change-password`)
-- Alterar role de TECNICO para SUPERVISOR/MASTER remove vínculo com Técnico
-- Email deve permanecer único
-- Apenas MASTER pode executar
+  @Post('change-password')
+  @ApiOperation({ summary: 'Alterar própria senha' })
+  changePassword(@Request() req, @Body() changePasswordDto: ChangePasswordDto) {
+    return this.usersService.changePassword(req.user.id, changePasswordDto);
+  }
 
-### Response (200 OK):
-```json
-{
-  "id": "user-uuid-123",
-  "email": "joao.santos@empresa.com",
-  "name": "João Silva Santos",
-  "role": "SUPERVISOR",
-  "status": "ATIVO",
-  "updatedAt": "2024-12-16T14:30:00.000Z"
-}
-```
+  @Post('reset-password')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Resetar senha de usuário' })
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.usersService.resetPassword(resetPasswordDto);
+  }
 
----
+  @Patch(':id/toggle-status')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Ativar/desativar usuário' })
+  toggleStatus(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.toggleStatus(id);
+  }
 
-## 🔄 Alternar Status do Usuário
-
-**PATCH** `/api/users/:id/status`
-
-Ativa ou desativa um usuário (apenas MASTER).
-
-### Request Body (opcional):
-```json
-{
-  "status": "INATIVO",
-  "reason": "Saída da empresa"
-}
-```
-
-### Response (200 OK):
-```json
-{
-  "id": "user-uuid-123",
-  "email": "joao.silva@empresa.com",
-  "name": "João Silva",
-  "status": "INATIVO",
-  "updatedAt": "2024-12-16T15:00:00.000Z",
-  "statusChangedBy": "admin-uuid",
-  "statusReason": "Saída da empresa"
-}
-```
-
-### Efeitos Colaterais:
-- Usuário INATIVO não pode fazer login
-- Tokens ativos são invalidados
-- Se for TECNICO, o técnico associado também é desativado
-
----
-
-## 🔑 Redefinir Senha (Admin)
-
-**POST** `/api/users/:id/reset-password`
-
-Redefine a senha de um usuário (apenas MASTER).
-
-### Request Body:
-```json
-{
-  "newPassword": "NovaSenha456!",
-  "sendEmail": true
-}
-```
-
-### Campos:
-- `newPassword`: Nova senha (deve atender critérios de segurança)
-- `sendEmail`: Enviar email ao usuário com nova senha (padrão: true)
-
-### Response (200 OK):
-```json
-{
-  "message": "Senha redefinida com sucesso",
-  "emailSent": true
-}
-```
-
----
-
-## 🔐 Alterar Role do Usuário
-
-**PATCH** `/api/users/:id/role`
-
-Altera o role/perfil de um usuário (apenas MASTER).
-
-### Request Body:
-```json
-{
-  "role": "SUPERVISOR",
-  "reason": "Promoção a supervisor"
-}
-```
-
-### Response (200 OK):
-```json
-{
-  "id": "user-uuid-123",
-  "email": "joao.silva@empresa.com",
-  "name": "João Silva",
-  "role": "SUPERVISOR",
-  "previousRole": "TECNICO",
-  "updatedAt": "2024-12-16T16:00:00.000Z",
-  "changedBy": "admin-uuid",
-  "reason": "Promoção a supervisor"
-}
-```
-
-### Observações:
-- Alterar de TECNICO para outro role remove vínculo com Técnico
-- Alterar para TECNICO requer criação de registro em Técnicos
-- Permissões são atualizadas automaticamente
-
----
-
-## 📊 Estatísticas de Usuários
-
-**GET** `/api/users/statistics`
-
-Retorna estatísticas gerais sobre usuários do sistema.
-
-### Response (200 OK):
-```json
-{
-  "total": 52,
-  "active": 48,
-  "inactive": 4,
-  "byRole": {
-    "MASTER": 2,
-    "SUPERVISOR": 10,
-    "TECNICO": 40
-  },
-  "withLogin": 45,
-  "neverLoggedIn": 7,
-  "recentLogins": {
-    "last24h": 35,
-    "last7days": 48,
-    "last30days": 50
-  },
-  "createdRecently": {
-    "last7days": 2,
-    "last30days": 5
+  @Delete(':id')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Deletar usuário' })
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.remove(id);
   }
 }
 ```
 
 ---
 
-## 📜 Histórico de Login
+## ⚙️ Service
 
-**GET** `/api/users/:id/login-history`
+```typescript
+// src/modules/users/users.service.ts
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, ILike } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import { User } from './entities/user.entity';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { QueryUserDto } from './dto/query-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
-Retorna histórico de logins de um usuário.
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+  ) {}
 
-### Query Parameters:
-- `page`: Número da página (padrão: 1)
-- `limit`: Itens por página (padrão: 20)
-- `startDate`: Data inicial (YYYY-MM-DD)
-- `endDate`: Data final (YYYY-MM-DD)
+  async create(createUserDto: CreateUserDto): Promise<Omit<User, 'password'>> {
+    // Verificar se email já existe
+    const existing = await this.usersRepository.findOne({
+      where: { email: createUserDto.email },
+    });
 
-### Response (200 OK):
-```json
-{
-  "userId": "user-uuid-123",
-  "userName": "João Silva",
-  "logins": [
-    {
-      "timestamp": "2024-12-16T08:00:00.000Z",
-      "ipAddress": "192.168.1.100",
-      "device": "Chrome 120 on Windows 10",
-      "location": "São Paulo, BR",
-      "success": true
-    },
-    {
-      "timestamp": "2024-12-15T18:30:00.000Z",
-      "ipAddress": "192.168.1.101",
-      "device": "Safari on iPhone",
-      "location": "São Paulo, BR",
-      "success": true
-    },
-    {
-      "timestamp": "2024-12-15T08:05:00.000Z",
-      "ipAddress": "192.168.1.100",
-      "device": "Chrome 120 on Windows 10",
-      "location": "São Paulo, BR",
-      "success": false,
-      "reason": "Senha incorreta"
+    if (existing) {
+      throw new ConflictException('Email já cadastrado');
     }
-  ],
-  "total": 156,
-  "page": 1,
-  "limit": 20,
-  "summary": {
-    "totalLogins": 154,
-    "failedAttempts": 2,
-    "successRate": 98.7,
-    "lastSuccessfulLogin": "2024-12-16T08:00:00.000Z"
+
+    const user = this.usersRepository.create(createUserDto);
+    const savedUser = await this.usersRepository.save(user);
+
+    // Remover senha da resposta
+    const { password, refreshToken, ...result } = savedUser;
+    return result;
+  }
+
+  async findAll(query: QueryUserDto) {
+    const { page = 1, limit = 20, search, role, isActive } = query;
+
+    const queryBuilder = this.usersRepository.createQueryBuilder('user');
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(user.name ILIKE :search OR user.email ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    if (role) {
+      queryBuilder.andWhere('user.role = :role', { role });
+    }
+
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('user.isActive = :isActive', { isActive });
+    }
+
+    const [users, total] = await queryBuilder
+      .orderBy('user.name', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    // Remover senhas
+    const sanitizedUsers = users.map(({ password, refreshToken, ...user }) => user);
+
+    return {
+      data: sanitizedUsers,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findOne(id: string): Promise<Omit<User, 'password'>> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
+    }
+
+    const { password, refreshToken, ...result } = user;
+    return result;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { email } });
+  }
+
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<Omit<User, 'password'>> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
+    }
+
+    // Verificar email duplicado
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const existing = await this.usersRepository.findOne({
+        where: { email: updateUserDto.email },
+      });
+
+      if (existing) {
+        throw new ConflictException('Email já cadastrado');
+      }
+    }
+
+    Object.assign(user, updateUserDto);
+    const updated = await this.usersRepository.save(user);
+
+    const { password, refreshToken, ...result } = updated;
+    return result;
+  }
+
+  async changePassword(
+    userId: string,
+    changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    // Verificar senha atual
+    const passwordMatches = await bcrypt.compare(
+      changePasswordDto.currentPassword,
+      user.password,
+    );
+
+    if (!passwordMatches) {
+      throw new BadRequestException('Senha atual incorreta');
+    }
+
+    // Atualizar senha
+    user.password = changePasswordDto.newPassword;
+    await this.usersRepository.save(user);
+
+    return { message: 'Senha alterada com sucesso' };
+  }
+
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+  ): Promise<{ message: string; temporaryPassword: string }> {
+    const user = await this.usersRepository.findOne({
+      where: { email: resetPasswordDto.email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    // Gerar senha temporária
+    const temporaryPassword = this.generateTemporaryPassword();
+    user.password = temporaryPassword;
+    await this.usersRepository.save(user);
+
+    return {
+      message: 'Senha resetada com sucesso',
+      temporaryPassword,
+    };
+  }
+
+  async toggleStatus(id: string): Promise<Omit<User, 'password'>> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
+    }
+
+    user.isActive = !user.isActive;
+    const updated = await this.usersRepository.save(user);
+
+    const { password, refreshToken, ...result } = updated;
+    return result;
+  }
+
+  async remove(id: string): Promise<{ message: string }> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
+    }
+
+    await this.usersRepository.remove(user);
+    return { message: 'Usuário deletado com sucesso' };
+  }
+
+  private generateTemporaryPassword(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
   }
 }
 ```
 
 ---
 
-## 🔔 Atividades do Usuário
+## 📍 Endpoints
 
-**GET** `/api/users/:id/activities`
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| POST | `/users` | Criar usuário | Master |
+| GET | `/users` | Listar usuários | Todos |
+| GET | `/users/profile` | Perfil próprio | Todos |
+| GET | `/users/:id` | Buscar por ID | Todos |
+| PATCH | `/users/profile` | Atualizar perfil | Todos |
+| PATCH | `/users/:id` | Atualizar usuário | Master |
+| POST | `/users/change-password` | Alterar senha | Todos |
+| POST | `/users/reset-password` | Resetar senha | Master |
+| PATCH | `/users/:id/toggle-status` | Ativar/Desativar | Master |
+| DELETE | `/users/:id` | Deletar | Master |
 
-Retorna log de atividades/ações do usuário no sistema.
+---
 
-### Query Parameters:
-- `page`: Número da página (padrão: 1)
-- `limit`: Itens por página (padrão: 20)
-- `action`: Filtrar por tipo de ação
-- `startDate`: Data inicial
-- `endDate`: Data final
+## 🗃️ Migration
 
-### Response (200 OK):
-```json
-{
-  "userId": "user-uuid-123",
-  "userName": "João Silva",
-  "activities": [
-    {
-      "id": "activity-uuid-1",
-      "action": "EVALUATION_VIEWED",
-      "description": "Visualizou avaliação 2024-Q4",
-      "timestamp": "2024-12-16T10:30:00.000Z",
-      "metadata": {
-        "evaluationId": "eval-uuid",
-        "period": "2024-Q4"
-      }
-    },
-    {
-      "id": "activity-uuid-2",
-      "action": "PROFILE_UPDATED",
-      "description": "Atualizou informações do perfil",
-      "timestamp": "2024-12-15T14:20:00.000Z",
-      "metadata": {
-        "changedFields": ["name"]
-      }
-    }
-  ],
-  "total": 523,
-  "page": 1,
-  "limit": 20
+```typescript
+// src/migrations/TIMESTAMP-create-users.ts
+import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
+
+export class CreateUsers1700000000000 implements MigrationInterface {
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.createTable(
+      new Table({
+        name: 'users',
+        columns: [
+          {
+            name: 'id',
+            type: 'uuid',
+            isPrimary: true,
+            generationStrategy: 'uuid',
+            default: 'uuid_generate_v4()',
+          },
+          {
+            name: 'email',
+            type: 'varchar',
+            isUnique: true,
+          },
+          {
+            name: 'password',
+            type: 'varchar',
+          },
+          {
+            name: 'name',
+            type: 'varchar',
+          },
+          {
+            name: 'role',
+            type: 'enum',
+            enum: ['master', 'supervisor'],
+            default: "'supervisor'",
+          },
+          {
+            name: 'workday',
+            type: 'enum',
+            enum: ['diurno', 'noturno'],
+            isNullable: true,
+          },
+          {
+            name: 'isActive',
+            type: 'boolean',
+            default: true,
+          },
+          {
+            name: 'lastLogin',
+            type: 'timestamp',
+            isNullable: true,
+          },
+          {
+            name: 'refreshToken',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'createdAt',
+            type: 'timestamp',
+            default: 'CURRENT_TIMESTAMP',
+          },
+          {
+            name: 'updatedAt',
+            type: 'timestamp',
+            default: 'CURRENT_TIMESTAMP',
+            onUpdate: 'CURRENT_TIMESTAMP',
+          },
+        ],
+      }),
+      true,
+    );
+
+    await queryRunner.createIndex(
+      'users',
+      new TableIndex({
+        name: 'IDX_USERS_EMAIL',
+        columnNames: ['email'],
+      }),
+    );
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.dropTable('users');
+  }
 }
 ```
 
 ---
 
-## 🔍 Buscar Usuários sem Técnico Associado
+## ✅ Checklist de Implementação
 
-**GET** `/api/users/without-tecnico`
-
-Lista usuários com role TECNICO mas sem registro em Técnicos associado.
-
-### Response (200 OK):
-```json
-{
-  "users": [
-    {
-      "id": "user-uuid-789",
-      "email": "novo.tecnico@empresa.com",
-      "name": "Pedro Novo",
-      "role": "TECNICO",
-      "status": "ATIVO",
-      "createdAt": "2024-12-14T10:00:00.000Z"
-    }
-  ],
-  "total": 3
-}
-```
-
----
-
-## 🚮 Excluir Usuário
-
-**DELETE** `/api/users/:id`
-
-Remove um usuário do sistema (apenas MASTER, soft delete).
-
-### Query Parameters:
-- `force`: true para exclusão definitiva (padrão: false)
-
-### Regras:
-- Por padrão, faz soft delete (marca como INATIVO)
-- Se `force=true`, remove definitivamente do banco
-- Não é possível excluir o próprio usuário
-- Não é possível excluir o último MASTER do sistema
-- Se for TECNICO, remove também registro de Técnico associado
-
-### Response (200 OK):
-```json
-{
-  "message": "Usuário removido com sucesso",
-  "id": "user-uuid-123",
-  "deletedAt": "2024-12-16T17:00:00.000Z"
-}
-```
-
----
-
-## 📤 Exportar Lista de Usuários
-
-**GET** `/api/users/export`
-
-Exporta lista de usuários em formato Excel ou CSV.
-
-### Query Parameters:
-- `format`: Formato (excel, csv) (padrão: excel)
-- `role`: Filtrar por role
-- `status`: Filtrar por status
-- `includeInactive`: Incluir inativos (true/false)
-
-### Response:
-Arquivo para download (.xlsx ou .csv)
-
----
-
-## 📧 Enviar Notificação para Usuários
-
-**POST** `/api/users/notify`
-
-Envia notificação por email para usuários selecionados (apenas MASTER).
-
-### Request Body:
-```json
-{
-  "userIds": ["user-uuid-1", "user-uuid-2"],
-  "subject": "Aviso Importante",
-  "message": "Mensagem da notificação...",
-  "priority": "NORMAL"
-}
-```
-
-### Prioridades:
-- `LOW` - Baixa prioridade
-- `NORMAL` - Normal
-- `HIGH` - Alta prioridade
-- `URGENT` - Urgente
-
-### Response (200 OK):
-```json
-{
-  "message": "Notificações enviadas com sucesso",
-  "sent": 2,
-  "failed": 0
-}
-```
-
----
-
-## ⚠️ Códigos de Erro
-
-- `400 Bad Request` - Dados inválidos ou campos obrigatórios ausentes
-- `401 Unauthorized` - Token JWT inválido ou ausente
-- `403 Forbidden` - Sem permissão (apenas MASTER pode gerenciar usuários)
-- `404 Not Found` - Usuário não encontrado
-- `409 Conflict` - Email já existe no sistema
-- `422 Unprocessable Entity` - Senha não atende critérios de segurança
-- `500 Internal Server Error` - Erro interno do servidor
-
----
-
-## 📝 Observações Importantes
-
-1. **Relacionamento User-Tecnico**:
-   - Todo TECNICO deve ter um User associado
-   - User pode existir sem Técnico (MASTER, SUPERVISOR)
-   - Relação 1:1 entre User e Tecnico
-
-2. **Hierarquia de Roles**:
-   - MASTER: Acesso total
-   - SUPERVISOR: Gerencia sua área
-   - TECNICO: Operacional
-
-3. **Segurança**:
-   - Apenas MASTER pode criar/editar/excluir usuários
-   - Senhas sempre hasheadas com bcrypt
-   - Tokens invalidados ao desativar usuário
-
-4. **Senha Forte Obrigatória**:
-   - Mínimo 8 caracteres
-   - Pelo menos 1 maiúscula, 1 minúscula, 1 número, 1 especial
-
-5. **Email Único**: Cada email só pode estar cadastrado uma vez
-
-6. **Auditoria**: Todas as ações administrativas são registradas
-
-7. **Status INATIVO**:
-   - Usuário não pode fazer login
-   - Tokens são invalidados
-   - Dados mantidos no sistema
-
-8. **Não pode excluir**:
-   - Próprio usuário logado
-   - Último MASTER do sistema
-   - Usuário com dados críticos vinculados (avaliações, etc)
+- [ ] Entidade User já existe (AUTH_API.md)
+- [ ] Implementar DTOs de gerenciamento
+- [ ] Criar controller com endpoints CRUD
+- [ ] Implementar service com bcrypt
+- [ ] Adicionar paginação e filtros
+- [ ] Implementar troca de senha
+- [ ] Implementar reset de senha
+- [ ] Soft delete (isActive toggle)
+- [ ] Sanitizar respostas (remover password)
+- [ ] Testes unitários e e2e

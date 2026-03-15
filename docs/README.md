@@ -1,255 +1,309 @@
-# 📋 Resumo Executivo - Atualização da Documentação do Back-End SkillFix
+# 📚 Documentação da API - SkillFix Backend
 
-**Data**: 10 de março de 2026  
-**Status**: ✅ Concluído
+## 🎯 Visão Geral
 
----
+Sistema de gestão de colaboradores, avaliações e competências técnicas para ambientes industriais.
 
-## 🎯 Objetivos Alcançados
-
-✅ Revisei **TODA** a aplicação frontend  
-✅ Identifiquei **todas as funcionalidades** implementadas  
-✅ Mapeei **estruturas de dados** completas  
-✅ Atualizei **5 documentações de API**  
-✅ Criei **1 nova documentação** (Sub-Times)  
-✅ Corrigi **inconsistências** e **dados desatualizados**
-
----
-
-## 📝 Documentações Atualizadas
-
-### 1. **BACKEND.md** - Arquivo Principal ✅
-- Nome do sistema atualizado para "SkillFix"
-- **ENUMS** corrigidos (Senioridade, Area, Gender)
-- **Roles** simplificadas (apenas MASTER e TECNICO)
-- **Modelos Prisma** atualizados com novos campos
-- Schema completo refletindo a aplicação real
-
-### 2. **docs/AUTH_API.md** - Autenticação ✅  
-- Removida role SUPERVISOR (não existe mais)
-- Mantidas apenas MASTER e TECNICO
-- Responses atualizados com novos campos
-- Explicação sobre senioridade vs role
-
-### 3. **docs/TECNICOS_API.md** - Colaboradores ✅
-- Adicionados campos: `photo`, `gender`, `senioridade`, `department`, `subTeamId`
-- Documentação completa de enums
-- Sistema de busca e filtros atualizado
-- Criação simultânea de User + Tecnico
-
-### 4. **docs/AVALIACOES_API.md** - Avaliações ✅
-- Sistema trimestral baseado em **skills individuais**
-- **Cooldown de 3 meses** entre avaliações
-- Validação de todas as skills
-- Comparação com avaliações anteriores
-- Cálculo de improvement
-
-### 5. **docs/SUBTIMES_API.md** - Sub-Times (NOVO) ✅
-- Documentação COMPLETA do zero
-- CRUD completo
-- Gerenciamento de membros
-- Funções e critérios de avaliação
-- Estatísticas do sub-time
-- Isolamento de máquinas e skills
+**Stack Tecnológica:**
+- **Framework:** NestJS 10.x
+- **ORM:** TypeORM 0.3.x
+- **Banco de Dados:** PostgreSQL 15+
+- **Autenticação:** JWT (jsonwebtoken + passport-jwt)
+- **Validação:** class-validator + class-transformer
+- **Documentação:** Swagger/OpenAPI 3.0
+- **Containerização:** Docker + Docker Compose
+- **Segurança:** Helmet, CORS, bcrypt
 
 ---
 
-## 🔍 Principais Descobertas da Análise
+## 📂 Estrutura de Módulos
 
-### ✅ O que EXISTE na aplicação:
-- Sistema hierárquico: Times → Sub-Times → Técnicos
-- Roles: MASTER e TECNICO
-- Senioridade: AUXILIAR → JUNIOR → PLENO → SENIOR → ESPECIALISTA → COORDENADOR → SUPERVISOR
-- Avaliações trimestrais baseadas em skills
-- Upload de fotos de perfil
-- Filtros por gênero, senioridade, turno
-- Sub-times com coordenadores
-- Isolamento de skills e máquinas por sub-time
-- Cooldown de 3 meses para avaliações
-- 7 colaboradores mockados
-- 9 máquinas disponíveis
-- 58 skills cadastradas
-- 3 times principais
-- 3 sub-times
+### 🔐 Autenticação e Usuários
+- **[AUTH_API.md](./AUTH_API.md)** - Autenticação JWT, login, refresh token
+- **[USERS_API.md](./USERS_API.md)** - Gestão de usuários Master/Supervisor
 
-### ❌ O que NÃO EXISTE (estava na documentação antiga):
-- Role SUPERVISOR (era MASTER)
-- Role ADMIN (nunca existiu)
-- Critérios de avaliação (production, quality, safety, teamwork)
-- Máquinas atribuídas diretamente a técnicos
-- Sistema de aprovação de avaliações (DRAFT, SUBMITTED, APPROVED)
-- Estrutura de permissions detalhada no response
+### 👥 Gestão de Pessoas
+- **[TECNICOS_API.md](./TECNICOS_API.md)** - CRUD de colaboradores/técnicos
+- **[TEAMS_API.md](./TEAMS_API.md)** - Gestão de times
+- **[SUBTIMES_API.md](./SUBTIMES_API.md)** - Gestão de sub-times
 
-### ⚠️ Inconsistências Encontradas:
-- Páginas `/rankings`, `/my-performance`, `/skills` referenciam dados que não existem
-- Role "admin" sendo validada em `/analytics` e `/operators`
-- Validação invertida em `/rankings` (deveria ser MASTER, não TECNICO)
+### 🏭 Gestão Técnica
+- **[MACHINES_API.md](./MACHINES_API.md)** - Cadastro e gestão de máquinas
+- **[SKILLS_API.md](./SKILLS_API.md)** - Competências técnicas e avaliações
+- **[EVALUATIONS_API.md](./EVALUATIONS_API.md)** - Sistema de avaliações
+- **[QUARTERLY_NOTES_API.md](./QUARTERLY_NOTES_API.md)** - Notas trimestrais
+
+### 📊 Analytics
+- **[ANALYTICS_API.md](./ANALYTICS_API.md)** - Dashboards, métricas e relatórios
 
 ---
 
-## 📊 Estrutura de Dados Atualizada
+## 🚀 Início Rápido
 
-### Enums Principais:
-- **UserRole**: MASTER, TECNICO
-- **Senioridade**: AUXILIAR, JUNIOR, PLENO, SENIOR, ESPECIALISTA, COORDENADOR, SUPERVISOR
-- **Area**: PRODUCAO, MANUTENCAO, QUALIDADE, ENGENHARIA, LOGISTICA, ADMINISTRATIVA, OUTRO
-- **Gender**: M, F
-- **Shift**: PRIMEIRO, SEGUNDO, TERCEIRO
-- **Status**: ATIVO, INATIVO
-
-### Hierarquia Organizacional:
-```
-USER (Master/Tecnico)
-  ↓
-SUPERVISOR (senioridade)
-  ↓
-TEAM (Time Principal)
-  ↓
-COORDENADOR (senioridade)
-  ↓
-SUBTEAM (Sub-Time)
-  ↓
-TECNICO (Colaboradores)
-  ↓
-SKILLS (isoladas por sub-time)
-```
-
----
-
-## 🚀 Como Iniciar o Back-End
-
-Quando for implementar o back-end, siga os passos:
+### 1. Clone e Configuração
 
 ```bash
-# 1. Criar projeto NestJS
-nest new skill-backend
-cd skill-backend
+git clone <repository-url>
+cd skillfix-backend
+cp .env.example .env
+```
 
-# 2. Instalar dependências
-npm install @nestjs/config @nestjs/jwt @nestjs/passport
-npm install @prisma/client passport passport-jwt bcrypt
-npm install -D prisma @types/passport-jwt @types/bcrypt
+### 2. Configuração Docker
 
-# 3. Inicializar Prisma
-npx prisma init
+```yaml
+# docker-compose.yml
+version: '3.8'
 
-# 4. Copiar schema do BACKEND.md para prisma/schema.prisma
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: skillfix_db
+      POSTGRES_USER: skillfix
+      POSTGRES_PASSWORD: skillfix_pass
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
-# 5. Configurar .env
-DATABASE_URL="postgresql://user:password@localhost:5432/skillfix"
-JWT_SECRET="seu-secret-aqui"
-JWT_EXPIRATION="1h"
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
 
-# 6. Iniciar PostgreSQL com Docker
-docker run -d \
-  --name skillfix-postgres \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=skillfix \
-  -p 5432:5432 \
-  postgres:16
+  app:
+    build: .
+    ports:
+      - '3000:3000'
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://skillfox:skillfox_pass@postgres:5432/skillfix_db
+      - REDIS_URL=redis://redis:6379
 
-# 7. Executar migrations
-npx prisma migrate dev --name init
+volumes:
+  postgres_data:
+```
 
-# 8. Popular com dados (seed)
-npx prisma db seed
+### 3. Variáveis de Ambiente (.env)
 
-# 9. Gerar Prisma Client
-npx prisma generate
+```env
+# Database
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=skillfix
+DATABASE_PASSWORD=skillfix_pass
+DATABASE_NAME=skillfix_db
 
-# 10. Iniciar aplicação
+# JWT
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+JWT_EXPIRATION=7d
+JWT_REFRESH_SECRET=your-refresh-secret
+JWT_REFRESH_EXPIRATION=30d
+
+# Application
+PORT=3000
+NODE_ENV=development
+API_PREFIX=api/v1
+
+# Redis (Cache/Sessions)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Upload
+MAX_FILE_SIZE=5242880
+ALLOWED_EXTENSIONS=jpg,jpeg,png,pdf
+
+# CORS
+CORS_ORIGIN=http://localhost:3001
+```
+
+### 4. Instalação e Execução
+
+```bash
+# Instalar dependências
+npm install
+
+# Rodar migrations
+npm run migration:run
+
+# Seed inicial (opcional)
+npm run seed
+
+# Desenvolvimento
 npm run start:dev
 
-# 11. Acessar Swagger
+# Produção
+npm run build
+npm run start:prod
+
+# Docker
+docker-compose up -d
+```
+
+---
+
+## 🗂️ Estrutura de Pastas
+
+```
+src/
+├── main.ts                      # Entry point
+├── app.module.ts                # Módulo raiz
+├── config/                      # Configurações
+│   ├── database.config.ts
+│   ├── jwt.config.ts
+│   └── swagger.config.ts
+├── common/                      # Compartilhado
+│   ├── decorators/
+│   ├── filters/
+│   ├── guards/
+│   ├── interceptors/
+│   └── pipes/
+├── modules/
+│   ├── auth/                    # Autenticação
+│   │   ├── auth.controller.ts
+│   │   ├── auth.service.ts
+│   │   ├── auth.module.ts
+│   │   ├── dto/
+│   │   ├── entities/
+│   │   ├── guards/
+│   │   └── strategies/
+│   ├── users/                   # Usuários
+│   ├── tecnicos/                # Colaboradores
+│   ├── teams/                   # Times
+│   ├── subtimes/                # Sub-times
+│   ├── machines/                # Máquinas
+│   ├── skills/                  # Competências
+│   ├── evaluations/             # Avaliações
+│   ├── quarterly-notes/         # Notas trimestrais
+│   └── analytics/               # Analytics
+└── database/
+    ├── migrations/
+    └── seeds/
+```
+
+---
+
+## 🔑 Autenticação
+
+Todas as rotas (exceto `/auth/login` e `/auth/register`) requerem autenticação via JWT Bearer Token:
+
+```bash
+Authorization: Bearer <token>
+```
+
+### Roles e Permissões
+
+- **Master:** Acesso total (CRUD completo)
+- **Supervisor:** Acesso limitado (leitura + gestão de time próprio)
+
+---
+
+## 📡 Padrões de API
+
+### Response Success
+```json
+{
+  "statusCode": 200,
+  "message": "Success",
+  "data": { ... }
+}
+```
+
+### Response Error
+```json
+{
+  "statusCode": 400,
+  "message": "Validation failed",
+  "errors": [...]
+}
+```
+
+### Paginação
+```json
+{
+  "data": [...],
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "total": 100,
+    "totalPages": 10
+  }
+}
+```
+
+---
+
+## 🧪 Testes
+
+```bash
+# Testes unitários
+npm run test
+
+# Testes e2e
+npm run test:e2e
+
+# Coverage
+npm run test:cov
+```
+
+---
+
+## 📝 Swagger/OpenAPI
+
+Acesse a documentação interativa:
+
+```
 http://localhost:3000/api/docs
 ```
 
 ---
 
-## 📁 Arquivos Criados/Atualizados
+## 🔒 Segurança
 
-### Atualizados (5):
-1. [BACKEND.md](../BACKEND.md) - Especificação técnica completa
-2. [docs/AUTH_API.md](AUTH_API.md) - API de Autenticação
-3. [docs/TECNICOS_API.md](TECNICOS_API.md) - API de Colaboradores
-4. [docs/AVALIACOES_API.md](AVALIACOES_API.md) - API de Avaliações
-5. [README.md](README.md) - Este arquivo
-
-### Criados (2):
-1. [docs/SUBTIMES_API.md](SUBTIMES_API.md) - API de Sub-Times (NOVO)
-2. [docs/ATUALIZACOES_BACKEND.md](ATUALIZACOES_BACKEND.md) - Log de mudanças
-
-### Pendentes de Atualização (5):
-1. docs/TEAMS_API.md - Adicionar relacionamento com sub-times
-2. docs/SKILLS_API.md - Adicionar teamId e subTeamId
-3. docs/MACHINES_API.md - Adicionar teamId e subTeamId
-4. docs/ANALYTICS_API.md - Endpoints reais do dashboard
-5. docs/USERS_API.md - Simplificar estrutura
+- ✅ Senhas hasheadas com bcrypt (salt rounds: 10)
+- ✅ JWT com refresh tokens
+- ✅ Rate limiting (express-rate-limit)
+- ✅ Helmet para headers de segurança
+- ✅ CORS configurado
+- ✅ Validação com class-validator
+- ✅ SQL Injection protegido (TypeORM)
+- ✅ XSS protegido (sanitização)
 
 ---
 
-## 🎓 Regras de Negócio Importantes
+## 📦 Dependências Principais
 
-### 1. Hierarquia
-- **Supervisores** (senioridade) gerenciam **Times**
-- **Coordenadores** (senioridade) gerenciam **Sub-Times**  
-- **Técnicos** pertencem a **Sub-Times**
-- Supervisores NÃO pertencem a times/sub-times (teamId = null)
-
-### 2. Avaliações
-- Período mínimo: **3 meses (90 dias)** entre avaliações
-- Baseadas em **skills individuais** (não critérios gerais)
-- Score = **média aritmética** de todas as skills
-- Todas as skills devem ser avaliadas
-
-### 3. Skills e Máquinas
-- **Isoladas por sub-time**
-- Cada sub-time tem suas próprias máquinas
-- Cada sub-time tem suas próprias skills
-- Skills são vinculadas a máquinas específicas
-
-### 4. Roles e Permissões
-- **MASTER**: Acesso total (cadastros, avaliações, dashboards)
-- **TECNICO**: Acesso somente leitura (dados pessoais, histórico)
+```json
+{
+  "@nestjs/common": "^10.0.0",
+  "@nestjs/core": "^10.0.0",
+  "@nestjs/typeorm": "^10.0.0",
+  "@nestjs/swagger": "^7.0.0",
+  "@nestjs/jwt": "^10.0.0",
+  "@nestjs/passport": "^10.0.0",
+  "typeorm": "^0.3.17",
+  "pg": "^8.11.0",
+  "passport-jwt": "^4.0.1",
+  "bcrypt": "^5.1.1",
+  "class-validator": "^0.14.0",
+  "class-transformer": "^0.5.1"
+}
+```
 
 ---
 
-## 📌 Próximos Passos Sugeridos
+## 🤝 Contribuição
 
-### Imediato:
-1. ✅ Revisar documentação atualizada
-2. ⬜ Atualizar documentações pendentes (TEAMS, SKILLS, MACHINES, ANALYTICS, USERS)
-3. ⬜ Validar estrutura do Prisma Schema
-
-### Curto Prazo:
-4. ⬜ Criar repositório do back-end
-5. ⬜ Implementar estrutura NestJS
-6. ⬜ Configurar Prisma
-7. ⬜ Implementar seeds com dados mockados do frontend
-
-### Médio Prazo:
-8. ⬜ Implementar endpoints de AUTH
-9. ⬜ Implementar endpoints de TECNICOS
-10. ⬜ Implementar endpoints de TEAMS e SUBTIMES
-11. ⬜ Implementar endpoints de AVALIACOES
-
-### Longo Prazo:
-12. ⬜ Implementar SKILLS e MACHINES
-13. ⬜ Implementar ANALYTICS
-14. ⬜ Configurar Docker completo
-15. ⬜ Deploy e testes E2E
+1. Leia a documentação específica do módulo
+2. Siga os padrões estabelecidos
+3. Valide com DTOs
+4. Documente com Swagger
+5. Escreva testes
 
 ---
 
-## 📞 Suporte
+## 📮 Suporte
 
-Para dúvidas sobre a documentação:
-- Revisar [BACKEND.md](../BACKEND.md) para estrutura completa
-- Consultar [docs/ATUALIZACOES_BACKEND.md](ATUALIZACOES_BACKEND.md) para changelog
-- Verificar cada API específica em `/docs`
-
----
-
-**Documentação revisada e atualizada com sucesso!** ✅  
-Pronto para iniciar a implementação do back-end.
+Para dúvidas sobre endpoints específicos, consulte a documentação de cada módulo listada acima.

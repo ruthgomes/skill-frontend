@@ -1,696 +1,720 @@
-# API de Avaliações Trimestrais - SkillFix
+# ⭐ EVALUATIONS API - Sistema de Avaliações
 
-## Visão Geral
+## 📋 Visão Geral
 
-A API de Avaliações gerencia o sistema de avaliação trimestral dos técnicos/colaboradores, baseado em avaliação individual de skills. Cada técnico recebe avaliações a cada 3 meses, com cooldown automático para evitar avaliações muito próximas.
-
-> **Regra importante**: O período mínimo entre avaliações é de 3 meses (90 dias). Colaboradores recém-avaliados ficam bloqueados até que o período de cooldown expire.
-
-## Estrutura da Avaliação Trimestral (QuarterlyNote)
-
-- `id` (UUID) - Identificador único
-- `tecnicoId` (UUID) - Técnico avaliado (chave estrangeira)
-- `quarter` (int) - Trimestre (1, 2, 3 ou 4)
-- `year` (int) - Ano da avaliação
-- `score` (float) - Pontuação geral (média das skills, 0-100)
-- `evaluatedDate` (datetime) - Data da avaliação
-- `notes` (text) - Observações gerais do avaliador
-- `createdAt` (datetime) - Data de criação
-- `updatedAt` (datetime) - Data de atualização
-
-### Relacionamentos
-- `tecnico` - Técnico avaliado (N:1)
-- `skillScores` - Pontuações individuais por skill (implícito, armazenado em `tecnico.skills`)
-
-## Sistema de Trimestres
-
-| Trimestre | Meses | Período |
-|-----------|-------|---------|
-| Q1 | Janeiro - Março | 1º Trimestre |
-| Q2 | Abril - Junho | 2º Trimestre |
-| Q3 | Julho - Setembro | 3º Trimestre |
-| Q4 | Outubro - Dezembro | 4º Trimestre |
-
-## Endpoints da API
-
-### Base URL
-```
-/api/avaliacoes
-```
-
-### Endpoint Alternativo (Quarterly Notes)
-```
-/api/quarterly-notes
-```
-
-### 🔒 Autenticação
-Todos os endpoints requerem autenticação JWT:
-```
-Authorization: Bearer SEU_TOKEN_JWT
-```
-
-### 🛡️ Permissões
-- **MASTER**: Criar, visualizar, editar e deletar avaliações
-- **TECNICO**: Apenas visualizar suas próprias avaliações (403 Forbidden para outras operações)
+Sistema completo de avaliações periódicas dos colaboradores técnicos com múltiplos critérios, comentários e workflow de aprovação.
 
 ---
 
-## 📝 Criar Avaliação Trimestral
+## 🗄️ Entidade: Evaluation (TypeORM)
 
-**POST** `/api/avaliacoes`
+```typescript
+// src/modules/evaluations/entities/evaluation.entity.ts
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
+import { Tecnico } from '../../tecnicos/entities/tecnico.entity';
+import { User } from '../../users/entities/user.entity';
+import { EvaluationCriterion } from './evaluation-criterion.entity';
 
-Cria uma nova avaliação trimestral para um técnico baseada em suas skills.
+export enum EvaluationStatus {
+  DRAFT = 'draft',
+  SUBMITTED = 'submitted',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
 
-### Validações:
-- ✅ Técnico deve existir e estar ativo
-- ✅ Última avaliação deve ter sido há pelo menos 3 meses (90 dias)
-- ✅ Todas as skills do técnico devem ser avaliadas (score 0-100)
-- ✅ Trimestre e ano devem ser válidos
+export enum EvaluationType {
+  QUARTERLY = 'quarterly',
+  ANNUAL = 'annual',
+  PROBATION = 'probation',
+  SPECIAL = 'special',
+}
 
-### Request Body:
-```json
-{
-  "tecnicoId": "abc12345-e89b-12d3-a456-426614174003",
-  "quarter": 4,
-  "year": 2024,
-  "notes": "Excelente desempenho no trimestre. Demonstrou grande evolução em programação de máquinas PRINTER e habilidades de troubleshooting.",
-  "skillScores": {
-    "skill-uuid-1": 85.0,
-    "skill-uuid-2": 90.0,
-    "skill-uuid-3": 78.0,
-    "skill-uuid-4": 92.0,
-    "skill-uuid-5": 88.0
-  }
+@Entity('evaluations')
+export class Evaluation {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({
+    type: 'enum',
+    enum: EvaluationType,
+    default: EvaluationType.QUARTERLY,
+  })
+  type: EvaluationType;
+
+  @Column({ type: 'int' })
+  quarter: number; // 1, 2, 3 ou 4
+
+  @Column({ type: 'int' })
+  year: number;
+
+  @Column()
+  tecnicoId: string;
+
+  @ManyToOne(() => Tecnico, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tecnicoId' })
+  tecnico: Tecnico;
+
+  @Column()
+  evaluatorId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'evaluatorId' })
+  evaluator: User;
+
+  @Column({ nullable: true })
+  approverId?: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'approverId' })
+  approver?: User;
+
+  @Column({
+    type: 'enum',
+    enum: EvaluationStatus,
+    default: EvaluationStatus.DRAFT,
+  })
+  status: EvaluationStatus;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  totalScore: number;
+
+  @Column({ type: 'text', nullable: true })
+  generalComments?: string;
+
+  @Column({ type: 'text', nullable: true })
+  strengths?: string; // Pontos fortes
+
+  @Column({ type: 'text', nullable: true })
+  improvements?: string; // Pontos de melhoria
+
+  @Column({ type: 'text', nullable: true })
+  goals?: string; // Metas para próximo período
+
+  @Column({ type: 'date', nullable: true })
+  submittedAt?: Date;
+
+  @Column({ type: 'date', nullable: true })
+  approvedAt?: Date;
+
+  @OneToMany(() => EvaluationCriterion, (criterion) => criterion.evaluation, {
+    cascade: true,
+  })
+  criteria: EvaluationCriterion[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
 ```
 
-### Campos Obrigatórios:
-- `tecnicoId`: ID do técnico a ser avaliado
-- `quarter`: Trimestre (1, 2, 3 ou 4)
-- `year`: Ano da avaliação (ex: 2024)
-- `skillScores`: Objeto com ID da skill e pontuação (0-100) para TODAS as skills do técnico
+### Entidade: EvaluationCriterion (Critérios de Avaliação)
 
-### Campos Opcionais:
-- `notes`: Observações gerais (máximo 2000 caracteres)
+```typescript
+// src/modules/evaluations/entities/evaluation-criterion.entity.ts
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Evaluation } from './evaluation.entity';
 
-### Cálculo do Score Geral:
-O `score` é calculado automaticamente como a média aritmética de todas as skills avaliadas:
-```
-score = sum(skillScores.values()) / count(skillScores)
-```
+@Entity('evaluation_criteria')
+export class EvaluationCriterion {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-### Response (201 Created):
-```json
-{
-  "id": "quarterly-note-uuid-123",
-  "tecnicoId": "abc12345-e89b-12d3-a456-426614174003",
-  "quarter": 4,
-  "year": 2024,
-  "score": 86.6,
-  "evaluatedDate": "2024-12-15T14:30:00.000Z",
-  "notes": "Excelente desempenho no trimestre...",
-  "createdAt": "2024-12-15T14:30:00.000Z",
-  "updatedAt": "2024-12-15T14:30:00.000Z",
-  "tecnico": {
-    "id": "abc12345-e89b-12d3-a456-426614174003",
-    "workday": "OP12345",
-    "name": "João Silva",
-    "cargo": "Técnico de Manutenção",
-    "senioridade": "PLENO",
-    "team": {
-      "id": "team-uuid",
-      "name": "Manutenção SMT"
-    },
-    "subTeam": {
-      "id": "subteam-uuid",
-      "name": "Linha SMT 1"
-    }
-  },
-  "skillScores": [
-    {
-      "skillId": "skill-uuid-1",
-      "skillName": "Programação PRINTER",
-      "score": 85.0,
-      "previousScore": 78.0,
-      "improvement": 7.0
-    },
-    {
-      "skillId": "skill-uuid-2",
-      "skillName": "Manutenção Preventiva",
-      "score": 90.0,
-      "previousScore": 85.0,
-      "improvement": 5.0
-    }
-  ],
-  "nextEvaluationDate": "2025-03-15T14:30:00.000Z"
-}
-```
+  @Column()
+  evaluationId: string;
 
-### Erros Comuns:
-- `400 Bad Request` - Skills ausentes ou período de cooldown não expirado
-  ```json
-  {
-    "statusCode": 400,
-    "message": "Técnico só pode ser avaliado novamente em 2025-03-15. Última avaliação: 2024-12-15",
-    "error": "Bad Request",
-    "cooldownDays": 90,
-    "daysRemaining": 75
-  }
-  ```
-- `400 Bad Request` - Skills não avaliadas
-  ```json
-  {
-    "statusCode": 400,
-    "message": "Todas as skills do técnico devem ser avaliadas",
-    "error": "Bad Request",
-    "missingSkills": [
-      {
-        "id": "skill-uuid-6",
-        "name": "Calibração AOI"
-      }
-    ]
-  }
-  ```
-  "createdAt": "2024-12-15T14:30:00.000Z",
-  "updatedAt": "2024-12-15T14:30:00.000Z",
-  "tecnico": {
-    "id": "abc12345-e89b-12d3-a456-426614174003",
-    "workday": "OP12345",
-    "user": {
-      "name": "João Silva",
-      "email": "joao.silva@empresa.com"
-    },
-    "cargo": "Operador de Máquina CNC",
-    "area": "Produção"
-  },
-  "evaluator": {
-    "id": "eval-uuid",
-    "name": "Maria Santos",
-    "email": "maria.santos@empresa.com",
-    "role": "SUPERVISOR"
-  }
+  @ManyToOne(() => Evaluation, (evaluation) => evaluation.criteria, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'evaluationId' })
+  evaluation: Evaluation;
+
+  @Column()
+  name: string; // Ex: "Qualidade do Trabalho", "Produtividade", "Segurança"
+
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2 })
+  weight: number; // Peso percentual (ex: 25 = 25%)
+
+  @Column({ type: 'decimal', precision: 5, scale: 2 })
+  score: number; // Pontuação obtida (0-100)
+
+  @Column({ type: 'decimal', precision: 5, scale: 2 })
+  maxScore: number; // Pontuação máxima
+
+  @Column({ type: 'text', nullable: true })
+  comments?: string;
 }
 ```
 
 ---
 
-## 📋 Listar Avaliações
+## 📥 DTOs
 
-**GET** `/api/avaliacoes`
+### Create Evaluation DTO
 
-Lista todas as avaliações com paginação e filtros.
+```typescript
+// src/modules/evaluations/dto/create-evaluation.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsUUID,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { EvaluationType } from '../entities/evaluation.entity';
 
-### Query Parameters:
-- `page` (opcional): Número da página (padrão: 1)
-- `limit` (opcional): Itens por página (padrão: 10, máximo: 100)
-- `tecnicoId` (opcional): Filtrar por técnico específico
-- `evaluatorId` (opcional): Filtrar por avaliador específico
-- `period` (opcional): Filtrar por período (ex: 2024-Q4)
-- `status` (opcional): Filtrar por status (DRAFT, SUBMITTED, APPROVED, REJECTED)
-- `startDate` (opcional): Data inicial (formato: YYYY-MM-DD)
-- `endDate` (opcional): Data final (formato: YYYY-MM-DD)
-- `minScore` (opcional): Score mínimo (0-100)
-- `maxScore` (opcional): Score máximo (0-100)
-- `sort` (opcional): Campo para ordenação (padrão: evaluatedAt)
-- `order` (opcional): Direção (ASC, DESC) (padrão: DESC)
+export class CriterionInput {
+  @ApiProperty({ example: 'Qualidade do Trabalho' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-### Exemplos:
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @ApiProperty({ example: 25 })
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  weight: number;
+
+  @ApiProperty({ example: 85 })
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  score: number;
+
+  @ApiProperty({ example: 100 })
+  @IsNumber()
+  @Min(0)
+  maxScore: number;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  comments?: string;
+}
+
+export class CreateEvaluationDto {
+  @ApiProperty({ enum: EvaluationType })
+  @IsEnum(EvaluationType)
+  @IsNotEmpty()
+  type: EvaluationType;
+
+  @ApiProperty({ example: 1, minimum: 1, maximum: 4 })
+  @IsInt()
+  @Min(1)
+  @Max(4)
+  @IsNotEmpty()
+  quarter: number;
+
+  @ApiProperty({ example: 2024 })
+  @IsInt()
+  @Min(2020)
+  @IsNotEmpty()
+  year: number;
+
+  @ApiProperty({ example: 'tecnico-uuid-123' })
+  @IsUUID()
+  @IsNotEmpty()
+  tecnicoId: string;
+
+  @ApiProperty({ example: 'user-uuid-456' })
+  @IsUUID()
+  @IsNotEmpty()
+  evaluatorId: string;
+
+  @ApiProperty({ type: [CriterionInput] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CriterionInput)
+  criteria: CriterionInput[];
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  generalComments?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  strengths?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  improvements?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  goals?: string;
+}
+
+// src/modules/evaluations/dto/update-evaluation.dto.ts
+import { PartialType } from '@nestjs/swagger';
+import { CreateEvaluationDto } from './create-evaluation.dto';
+
+export class UpdateEvaluationDto extends PartialType(CreateEvaluationDto) {}
+
+// src/modules/evaluations/dto/query-evaluation.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsUUID, IsEnum, IsInt } from 'class-validator';
+import { Type } from 'class-transformer';
+import { EvaluationStatus, EvaluationType } from '../entities/evaluation.entity';
+
+export class QueryEvaluationDto {
+  @ApiProperty({ required: false })
+  @IsUUID()
+  @IsOptional()
+  tecnicoId?: string;
+
+  @ApiProperty({ required: false })
+  @IsUUID()
+  @IsOptional()
+  evaluatorId?: string;
+
+  @ApiProperty({ required: false, enum: EvaluationStatus })
+  @IsEnum(EvaluationStatus)
+  @IsOptional()
+  status?: EvaluationStatus;
+
+  @ApiProperty({ required: false, enum: EvaluationType })
+  @IsEnum(EvaluationType)
+  @IsOptional()
+  type?: EvaluationType;
+
+  @ApiProperty({ required: false })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  quarter?: number;
+
+  @ApiProperty({ required: false })
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  year?: number;
+}
+
+// src/modules/evaluations/dto/submit-evaluation.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString } from 'class-validator';
+
+export class SubmitEvaluationDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  finalComments: string;
+}
+
+// src/modules/evaluations/dto/approve-evaluation.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
+
+export class ApproveEvaluationDto {
+  @ApiProperty()
+  @IsBoolean()
+  approved: boolean;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  comments?: string;
+}
 ```
-GET /api/avaliacoes?page=1&limit=20
-GET /api/avaliacoes?tecnicoId=abc12345-e89b-12d3-a456-426614174003
-GET /api/avaliacoes?period=2024-Q4&status=APPROVED
-GET /api/avaliacoes?startDate=2024-10-01&endDate=2024-12-31
-GET /api/avaliacoes?minScore=80&sort=score&order=DESC
+
+---
+
+## 🎮 Controller
+
+```typescript
+// src/modules/evaluations/evaluations.controller.ts
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { EvaluationsService } from './evaluations.service';
+import { CreateEvaluationDto } from './dto/create-evaluation.dto';
+import { UpdateEvaluationDto } from './dto/update-evaluation.dto';
+import { QueryEvaluationDto } from './dto/query-evaluation.dto';
+import { SubmitEvaluationDto } from './dto/submit-evaluation.dto';
+import { ApproveEvaluationDto } from './dto/approve-evaluation.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
+
+@ApiTags('Evaluations')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('evaluations')
+export class EvaluationsController {
+  constructor(private readonly evaluationsService: EvaluationsService) {}
+
+  @Post()
+  @Roles(UserRole.MASTER, UserRole.SUPERVISOR)
+  @ApiOperation({ summary: 'Criar nova avaliação' })
+  create(@Body() createEvaluationDto: CreateEvaluationDto) {
+    return this.evaluationsService.create(createEvaluationDto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar avaliações com filtros' })
+  findAll(@Query() query: QueryEvaluationDto) {
+    return this.evaluationsService.findAll(query);
+  }
+
+  @Get('tecnico/:tecnicoId')
+  @ApiOperation({ summary: 'Listar avaliações de um técnico' })
+  findByTecnico(@Param('tecnicoId', ParseUUIDPipe) tecnicoId: string) {
+    return this.evaluationsService.findByTecnico(tecnicoId);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar avaliação por ID' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.evaluationsService.findOne(id);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.MASTER, UserRole.SUPERVISOR)
+  @ApiOperation({ summary: 'Atualizar avaliação (apenas draft)' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateEvaluationDto: UpdateEvaluationDto,
+  ) {
+    return this.evaluationsService.update(id, updateEvaluationDto);
+  }
+
+  @Post(':id/submit')
+  @Roles(UserRole.MASTER, UserRole.SUPERVISOR)
+  @ApiOperation({ summary: 'Submeter avaliação para aprovação' })
+  submit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() submitDto: SubmitEvaluationDto,
+  ) {
+    return this.evaluationsService.submit(id, submitDto);
+  }
+
+  @Post(':id/approve')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Aprovar ou rejeitar avaliação' })
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() approveDto: ApproveEvaluationDto,
+  ) {
+    return this.evaluationsService.approve(id, approveDto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Deletar avaliação' })
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.evaluationsService.remove(id);
+  }
+}
 ```
 
-### Response (200 OK):
-```json
-{
-  "data": [
-    {
-      "id": "eval-uuid-123",
-      "tecnicoId": "abc12345-e89b-12d3-a456-426614174003",
-      "period": "2024-Q4",
-      "score": 88.65,
-      "status": "APPROVED",
-      "evaluatedAt": "2024-12-15T14:30:00.000Z",
-      "tecnico": {
-        "workday": "OP12345",
-        "user": {
-          "name": "João Silva"
-        },
-        "cargo": "Operador de Máquina CNC"
+---
+
+## ⚙️ Service
+
+```typescript
+// src/modules/evaluations/evaluations.service.ts
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Evaluation, EvaluationStatus } from './entities/evaluation.entity';
+import { EvaluationCriterion } from './entities/evaluation-criterion.entity';
+import { CreateEvaluationDto } from './dto/create-evaluation.dto';
+import { UpdateEvaluationDto } from './dto/update-evaluation.dto';
+import { QueryEvaluationDto } from './dto/query-evaluation.dto';
+import { SubmitEvaluationDto } from './dto/submit-evaluation.dto';
+import { ApproveEvaluationDto } from './dto/approve-evaluation.dto';
+
+@Injectable()
+export class EvaluationsService {
+  constructor(
+    @InjectRepository(Evaluation)
+    private evaluationsRepository: Repository<Evaluation>,
+    @InjectRepository(EvaluationCriterion)
+    private criteriaRepository: Repository<EvaluationCriterion>,
+  ) {}
+
+  async create(createEvaluationDto: CreateEvaluationDto): Promise<Evaluation> {
+    // Verificar se já existe avaliação para este técnico/período
+    const existing = await this.evaluationsRepository.findOne({
+      where: {
+        tecnicoId: createEvaluationDto.tecnicoId,
+        quarter: createEvaluationDto.quarter,
+        year: createEvaluationDto.year,
+        type: createEvaluationDto.type,
       },
-      "evaluator": {
-        "name": "Maria Santos",
-        "role": "SUPERVISOR"
-      }
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        'Já existe uma avaliação para este técnico neste período',
+      );
     }
-  ],
-  "total": 150,
-  "page": 1,
-  "limit": 10,
-  "totalPages": 15,
-  "statistics": {
-    "averageScore": 85.3,
-    "highestScore": 95.5,
-    "lowestScore": 65.2
+
+    // Calcular score total baseado nos critérios
+    const totalScore = this.calculateTotalScore(createEvaluationDto.criteria);
+
+    const evaluation = this.evaluationsRepository.create({
+      ...createEvaluationDto,
+      totalScore,
+      status: EvaluationStatus.DRAFT,
+    });
+
+    const savedEvaluation = await this.evaluationsRepository.save(evaluation);
+
+    // Criar critérios
+    const criteria = createEvaluationDto.criteria.map((criterion) =>
+      this.criteriaRepository.create({
+        ...criterion,
+        evaluationId: savedEvaluation.id,
+      }),
+    );
+
+    await this.criteriaRepository.save(criteria);
+
+    return this.findOne(savedEvaluation.id);
+  }
+
+  async findAll(query: QueryEvaluationDto): Promise<Evaluation[]> {
+    const { tecnicoId, evaluatorId, status, type, quarter, year } = query;
+
+    const queryBuilder = this.evaluationsRepository
+      .createQueryBuilder('evaluation')
+      .leftJoinAndSelect('evaluation.tecnico', 'tecnico')
+      .leftJoinAndSelect('evaluation.evaluator', 'evaluator')
+      .leftJoinAndSelect('evaluation.approver', 'approver')
+      .leftJoinAndSelect('evaluation.criteria', 'criteria');
+
+    if (tecnicoId) {
+      queryBuilder.andWhere('evaluation.tecnicoId = :tecnicoId', { tecnicoId });
+    }
+
+    if (evaluatorId) {
+      queryBuilder.andWhere('evaluation.evaluatorId = :evaluatorId', {
+        evaluatorId,
+      });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('evaluation.status = :status', { status });
+    }
+
+    if (type) {
+      queryBuilder.andWhere('evaluation.type = :type', { type });
+    }
+
+    if (quarter) {
+      queryBuilder.andWhere('evaluation.quarter = :quarter', { quarter });
+    }
+
+    if (year) {
+      queryBuilder.andWhere('evaluation.year = :year', { year });
+    }
+
+    queryBuilder
+      .orderBy('evaluation.year', 'DESC')
+      .addOrderBy('evaluation.quarter', 'DESC');
+
+    return queryBuilder.getMany();
+  }
+
+  async findByTecnico(tecnicoId: string): Promise<Evaluation[]> {
+    return this.evaluationsRepository.find({
+      where: { tecnicoId },
+      relations: ['evaluator', 'approver', 'criteria'],
+      order: { year: 'DESC', quarter: 'DESC' },
+    });
+  }
+
+  async findOne(id: string): Promise<Evaluation> {
+    const evaluation = await this.evaluationsRepository.findOne({
+      where: { id },
+      relations: ['tecnico', 'evaluator', 'approver', 'criteria'],
+    });
+
+    if (!evaluation) {
+      throw new NotFoundException(`Avaliação com ID ${id} não encontrada`);
+    }
+
+    return evaluation;
+  }
+
+  async update(
+    id: string,
+    updateEvaluationDto: UpdateEvaluationDto,
+  ): Promise<Evaluation> {
+    const evaluation = await this.findOne(id);
+
+    if (evaluation.status !== EvaluationStatus.DRAFT) {
+      throw new BadRequestException(
+        'Apenas avaliações em rascunho podem ser editadas',
+      );
+    }
+
+    // Recalcular score se critérios mudaram
+    if (updateEvaluationDto.criteria) {
+      updateEvaluationDto['totalScore'] = this.calculateTotalScore(
+        updateEvaluationDto.criteria,
+      );
+
+      // Atualizar critérios
+      await this.criteriaRepository.delete({ evaluationId: id });
+      const criteria = updateEvaluationDto.criteria.map((criterion) =>
+        this.criteriaRepository.create({
+          ...criterion,
+          evaluationId: id,
+        }),
+      );
+      await this.criteriaRepository.save(criteria);
+    }
+
+    Object.assign(evaluation, updateEvaluationDto);
+    return this.evaluationsRepository.save(evaluation);
+  }
+
+  async submit(
+    id: string,
+    submitDto: SubmitEvaluationDto,
+  ): Promise<Evaluation> {
+    const evaluation = await this.findOne(id);
+
+    if (evaluation.status !== EvaluationStatus.DRAFT) {
+      throw new BadRequestException('Avaliação já foi submetida');
+    }
+
+    evaluation.status = EvaluationStatus.SUBMITTED;
+    evaluation.submittedAt = new Date();
+    evaluation.generalComments = submitDto.finalComments;
+
+    return this.evaluationsRepository.save(evaluation);
+  }
+
+  async approve(
+    id: string,
+    approveDto: ApproveEvaluationDto,
+  ): Promise<Evaluation> {
+    const evaluation = await this.findOne(id);
+
+    if (evaluation.status !== EvaluationStatus.SUBMITTED) {
+      throw new BadRequestException('Avaliação não está pendente de aprovação');
+    }
+
+    evaluation.status = approveDto.approved
+      ? EvaluationStatus.APPROVED
+      : EvaluationStatus.REJECTED;
+    evaluation.approvedAt = new Date();
+
+    if (approveDto.comments) {
+      evaluation.generalComments += `\n\n[Aprovador] ${approveDto.comments}`;
+    }
+
+    return this.evaluationsRepository.save(evaluation);
+  }
+
+  async remove(id: string): Promise<{ message: string }> {
+    const evaluation = await this.findOne(id);
+    await this.evaluationsRepository.remove(evaluation);
+    return { message: 'Avaliação deletada com sucesso' };
+  }
+
+  private calculateTotalScore(criteria: any[]): number {
+    let totalScore = 0;
+    criteria.forEach((criterion) => {
+      const weightedScore = (criterion.score / criterion.maxScore) * criterion.weight;
+      totalScore += weightedScore;
+    });
+    return totalScore;
   }
 }
 ```
 
 ---
 
-## 🔍 Buscar Avaliação por ID
+## 📍 Endpoints
 
-**GET** `/api/avaliacoes/:id`
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| POST | `/evaluations` | Criar avaliação | Master/Supervisor |
+| GET | `/evaluations` | Listar avaliações | Todos |
+| GET | `/evaluations/tecnico/:id` | Avaliações de técnico | Todos |
+| GET | `/evaluations/:id` | Buscar por ID | Todos |
+| PATCH | `/evaluations/:id` | Atualizar (draft) | Master/Supervisor |
+| POST | `/evaluations/:id/submit` | Submeter para aprovação | Master/Supervisor |
+| POST | `/evaluations/:id/approve` | Aprovar/Rejeitar | Master |
+| DELETE | `/evaluations/:id` | Deletar | Master |
 
-Busca uma avaliação específica pelo ID com todos os detalhes.
+---
 
-### Response (200 OK):
-```json
-{
-  "id": "eval-uuid-123",
-  "tecnicoId": "abc12345-e89b-12d3-a456-426614174003",
-  "evaluatorId": "eval-uuid",
-  "period": "2024-Q4",
-  "score": 88.65,
-  "productionScore": 90.0,
-  "qualityScore": 85.0,
-  "safetyScore": 92.0,
-  "teamworkScore": 87.0,
-  "observations": "Excelente desempenho no trimestre. Demonstrou grande capacidade técnica e liderança.",
-  "status": "APPROVED",
-  "evaluatedAt": "2024-12-15T14:30:00.000Z",
-  "createdAt": "2024-12-15T14:30:00.000Z",
-  "updatedAt": "2024-12-15T14:30:00.000Z",
-  "tecnico": {
-    "id": "abc12345-e89b-12d3-a456-426614174003",
-    "workday": "OP12345",
-    "user": {
-      "id": "user-uuid",
-      "name": "João Silva",
-      "email": "joao.silva@empresa.com"
-    },
-    "cargo": "Operador de Máquina CNC",
-    "area": "Produção",
-    "shift": "PRIMEIRO",
-    "team": {
-      "name": "Time Alpha"
-    }
-  },
-  "evaluator": {
-    "id": "eval-uuid",
-    "name": "Maria Santos",
-    "email": "maria.santos@empresa.com",
-    "role": "SUPERVISOR"
-  },
-  "history": [
-    {
-      "action": "CREATED",
-      "timestamp": "2024-12-15T14:30:00.000Z",
-      "userId": "eval-uuid"
-    },
-    {
-      "action": "STATUS_CHANGED",
-      "from": "DRAFT",
-      "to": "SUBMITTED",
-      "timestamp": "2024-12-15T14:35:00.000Z"
-    },
-    {
-      "action": "APPROVED",
-      "timestamp": "2024-12-15T15:00:00.000Z",
-      "userId": "master-uuid"
-    }
-  ]
-}
+## 🔄 Workflow de Avaliação
+
+```
+DRAFT → SUBMITTED → APPROVED
+           ↓
+       REJECTED (volta para DRAFT se necessário)
 ```
 
 ---
 
-## ✏️ Atualizar Avaliação
+## ✅ Checklist de Implementação
 
-**PATCH** `/api/avaliacoes/:id`
-
-Atualiza uma avaliação existente (apenas se status for DRAFT ou REJECTED).
-
-### Request Body (todos os campos opcionais):
-```json
-{
-  "productionScore": 92.0,
-  "qualityScore": 88.0,
-  "safetyScore": 95.0,
-  "teamworkScore": 89.0,
-  "observations": "Atualização: Desempenho ainda melhor após revisão...",
-  "status": "SUBMITTED"
-}
-```
-
-### Regras:
-- Apenas avaliações com status `DRAFT` ou `REJECTED` podem ser editadas
-- O `score` geral é recalculado automaticamente
-- Alterações são registradas no histórico
-
-### Response (200 OK):
-```json
-{
-  "id": "eval-uuid-123",
-  "score": 91.15,
-  "productionScore": 92.0,
-  "qualityScore": 88.0,
-  "safetyScore": 95.0,
-  "teamworkScore": 89.0,
-  "observations": "Atualização: Desempenho ainda melhor...",
-  "status": "SUBMITTED",
-  "updatedAt": "2024-12-15T16:00:00.000Z"
-}
-```
-
----
-
-## 🔄 Alterar Status da Avaliação
-
-**PATCH** `/api/avaliacoes/:id/status`
-
-Altera o status de uma avaliação.
-
-### Request Body:
-```json
-{
-  "status": "APPROVED",
-  "reason": "Aprovada após análise detalhada"
-}
-```
-
-### Fluxo de Status Permitidos:
-- `DRAFT` → `SUBMITTED`
-- `SUBMITTED` → `APPROVED` ou `REJECTED`
-- `REJECTED` → `DRAFT`
-
-### Permissões:
-- **SUPERVISOR**: Pode criar e submeter avaliações
-- **MASTER**: Pode aprovar ou rejeitar avaliações
-
-### Response (200 OK):
-```json
-{
-  "id": "eval-uuid-123",
-  "status": "APPROVED",
-  "updatedAt": "2024-12-15T17:00:00.000Z",
-  "statusHistory": [
-    {
-      "status": "APPROVED",
-      "changedBy": "master-uuid",
-      "reason": "Aprovada após análise detalhada",
-      "timestamp": "2024-12-15T17:00:00.000Z"
-    }
-  ]
-}
-```
-
----
-
-## 📊 Avaliações por Período
-
-### Listar por Período Específico
-**GET** `/api/avaliacoes/period/:period`
-
-Exemplo: `GET /api/avaliacoes/period/2024-Q4`
-
-```json
-{
-  "period": "2024-Q4",
-  "totalEvaluations": 45,
-  "averageScore": 85.3,
-  "data": [
-    {
-      "id": "eval-uuid-123",
-      "tecnico": {
-        "workday": "OP12345",
-        "name": "João Silva"
-      },
-      "score": 88.65,
-      "status": "APPROVED"
-    }
-  ],
-  "scoreDistribution": {
-    "90-100": 12,
-    "80-89": 20,
-    "70-79": 10,
-    "60-69": 3,
-    "below-60": 0
-  }
-}
-```
-
-### Comparar Períodos
-**GET** `/api/avaliacoes/compare-periods`
-
-```json
-{
-  "comparison": [
-    {
-      "period": "2024-Q1",
-      "averageScore": 82.5,
-      "totalEvaluations": 42
-    },
-    {
-      "period": "2024-Q2",
-      "averageScore": 84.1,
-      "totalEvaluations": 43
-    },
-    {
-      "period": "2024-Q3",
-      "averageScore": 83.8,
-      "totalEvaluations": 44
-    },
-    {
-      "period": "2024-Q4",
-      "averageScore": 85.3,
-      "totalEvaluations": 45
-    }
-  ],
-  "trend": "UP",
-  "improvement": 2.8
-}
-```
-
----
-
-## 👤 Avaliações de um Técnico
-
-### Histórico Completo
-**GET** `/api/avaliacoes/tecnico/:tecnicoId`
-
-Lista todas as avaliações de um técnico específico.
-
-### Query Parameters:
-- `page`: Número da página (padrão: 1)
-- `limit`: Itens por página (padrão: 10)
-- `status`: Filtrar por status
-- `startDate`: Data inicial
-- `endDate`: Data final
-
-```json
-{
-  "tecnicoId": "abc12345-e89b-12d3-a456-426614174003",
-  "tecnico": {
-    "workday": "OP12345",
-    "name": "João Silva",
-    "cargo": "Operador de Máquina CNC"
-  },
-  "data": [
-    {
-      "id": "eval-uuid-123",
-      "period": "2024-Q4",
-      "score": 88.65,
-      "productionScore": 90.0,
-      "qualityScore": 85.0,
-      "safetyScore": 92.0,
-      "teamworkScore": 87.0,
-      "status": "APPROVED",
-      "evaluatedAt": "2024-12-15T14:30:00.000Z",
-      "evaluator": {
-        "name": "Maria Santos"
-      }
-    }
-  ],
-  "total": 12,
-  "statistics": {
-    "averageScore": 86.3,
-    "highestScore": 92.5,
-    "lowestScore": 78.0,
-    "trend": "UP",
-    "lastPeriodImprovement": 2.35
-  },
-  "scoresByCategory": {
-    "production": 87.5,
-    "quality": 84.2,
-    "safety": 90.1,
-    "teamwork": 85.8
-  }
-}
-```
-
-### Última Avaliação
-**GET** `/api/avaliacoes/tecnico/:tecnicoId/latest`
-
-Retorna a avaliação mais recente aprovada do técnico.
-
----
-
-## 📈 Estatísticas e Analytics
-
-### Estatísticas Gerais
-**GET** `/api/avaliacoes/statistics`
-
-```json
-{
-  "overall": {
-    "totalEvaluations": 180,
-    "averageScore": 84.5,
-    "totalTecnicos": 45,
-    "approvedEvaluations": 165,
-    "pendingEvaluations": 15
-  },
-  "byPeriod": {
-    "2024-Q1": { "count": 42, "average": 82.5 },
-    "2024-Q2": { "count": 43, "average": 84.1 },
-    "2024-Q3": { "count": 44, "average": 83.8 },
-    "2024-Q4": { "count": 45, "average": 85.3 }
-  },
-  "byCategory": {
-    "production": 85.2,
-    "quality": 83.5,
-    "safety": 88.9,
-    "teamwork": 84.1
-  },
-  "scoreDistribution": {
-    "90-100": 25,
-    "80-89": 95,
-    "70-79": 50,
-    "60-69": 10,
-    "below-60": 0
-  }
-}
-```
-
-### Top Performers
-**GET** `/api/avaliacoes/top-performers`
-
-```json
-{
-  "period": "2024-Q4",
-  "topPerformers": [
-    {
-      "rank": 1,
-      "tecnicoId": "uuid-1",
-      "workday": "OP12345",
-      "name": "João Silva",
-      "score": 95.5,
-      "evaluationId": "eval-uuid"
-    },
-    {
-      "rank": 2,
-      "tecnicoId": "uuid-2",
-      "workday": "OP67890",
-      "name": "Maria Oliveira",
-      "score": 94.2,
-      "evaluationId": "eval-uuid-2"
-    }
-  ]
-}
-```
-
----
-
-## 📝 Notas Trimestrais (Quarterly Notes)
-
-### Criar Nota Trimestral
-**POST** `/api/avaliacoes/:id/quarterly-note`
-
-Adiciona uma nota detalhada a uma avaliação aprovada.
-
-```json
-{
-  "quarter": "Q4",
-  "year": 2024,
-  "note": "Técnico demonstrou excelente evolução...",
-  "highlights": [
-    "Reduziu tempo de setup em 15%",
-    "Zero acidentes no período",
-    "Mentor de 2 novos operadores"
-  ],
-  "areasForImprovement": [
-    "Melhorar documentação de processos",
-    "Desenvolver habilidades de liderança"
-  ]
-}
-```
-
----
-
-## ❌ Excluir Avaliação
-
-**DELETE** `/api/avaliacoes/:id`
-
-Remove uma avaliação (apenas DRAFT ou REJECTED).
-
-### Regras:
-- Apenas avaliações com status `DRAFT` ou `REJECTED` podem ser excluídas
-- Avaliações `APPROVED` não podem ser excluídas (apenas arquivadas)
-
-### Response (200 OK):
-```json
-{
-  "message": "Avaliação removida com sucesso",
-  "id": "eval-uuid-123"
-}
-```
-
----
-
-## 📤 Exportar Avaliações
-
-### Exportar para Excel
-**GET** `/api/avaliacoes/export/excel`
-
-### Exportar para PDF
-**GET** `/api/avaliacoes/export/pdf/:id`
-
-Exporta uma avaliação específica em formato PDF.
-
----
-
-## ⚠️ Códigos de Erro
-
-- `400 Bad Request` - Dados inválidos ou campos obrigatórios ausentes
-- `401 Unauthorized` - Token JWT inválido ou ausente
-- `403 Forbidden` - Sem permissão para acessar/modificar avaliação
-- `404 Not Found` - Avaliação não encontrada
-- `409 Conflict` - Já existe avaliação para este técnico neste período
-- `422 Unprocessable Entity` - Status transition inválida
-- `500 Internal Server Error` - Erro interno do servidor
-
----
-
-## 📝 Observações Importantes
-
-1. **Período Único**: Cada técnico pode ter apenas uma avaliação aprovada por período
-2. **Cálculo Automático**: O score geral é calculado automaticamente com pesos predefinidos
-3. **Auditoria**: Todas as alterações são registradas no histórico
-4. **Permissões**: 
-   - `TECNICO`: Pode apenas visualizar suas próprias avaliações
-   - `SUPERVISOR`: Pode criar e submeter avaliações
-   - `MASTER`: Pode aprovar, rejeitar e visualizar todas as avaliações
-5. **Workflow**: 
-   - Criação → DRAFT
-   - Submissão → SUBMITTED (aguardando aprovação)
-   - Aprovação → APPROVED (final)
-   - Rejeição → REJECTED (permite reedição)
-6. **Scores**: Todos os scores devem estar entre 0 e 100
-7. **Pesos dos Critérios**:
-   - Produção: 35%
-   - Qualidade: 30%
-   - Segurança: 20%
-   - Trabalho em Equipe: 15%
+- [ ] Criar entidades Evaluation e EvaluationCriterion
+- [ ] Implementar DTOs com validação
+- [ ] Criar controller com guards
+- [ ] Implementar service com cálculos
+- [ ] Adicionar workflow de aprovação
+- [ ] Criar migration com foreign keys
+- [ ] Integrar com QuarterlyNote após aprovação
+- [ ] Adicionar notificações de status
+- [ ] Implementar logs de auditoria
+- [ ] Testes unitários e e2e

@@ -1,734 +1,479 @@
-# API de Máquinas - SisOp
+# 🏭 MACHINES API - Gestão de Máquinas
 
-## Visão Geral
+## 📋 Visão Geral
 
-A API de Máquinas gerencia o cadastro e controle das máquinas/equipamentos do sistema, suas relações com técnicos, habilidades específicas e histórico de operação.
-
-## Estrutura da Máquina
-
-- `id` (UUID) - Identificador único
-- `name` (string) - Nome da máquina
-- `code` (string) - Código único da máquina
-- `description` (text) - Descrição e especificações
-- `status` (enum) - Status (ATIVO, INATIVO, MANUTENCAO)
-- `createdAt` (datetime) - Data de cadastro
-- `updatedAt` (datetime) - Data de atualização
-
-## Endpoints da API
-
-### Base URL
-```
-/api/machines
-```
-
-### 🔒 Autenticação
-Todos os endpoints requerem autenticação JWT:
-```
-Authorization: Bearer SEU_TOKEN_JWT
-```
+Módulo para cadastro e gestão de máquinas/equipamentos industriais, vinculadas a times específicos e servindo como base para competências técnicas.
 
 ---
 
-## 📝 Criar Máquina
+## 🗄️ Entidade: Machine (TypeORM)
 
-**POST** `/api/machines`
+```typescript
+// src/modules/machines/entities/machine.entity.ts
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
+import { Team } from '../../teams/entities/team.entity';
+import { Skill } from '../../skills/entities/skill.entity';
 
-Cria uma nova máquina no sistema.
+@Entity('machines')
+export class Machine {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-### Request Body:
-```json
-{
-  "name": "CNC-01",
-  "code": "CNC001",
-  "description": "Máquina CNC de Alta Precisão - Modelo XYZ-3000",
-  "manufacturer": "HAAS Automation",
-  "model": "VF-3",
-  "serialNumber": "12345ABC",
-  "acquisitionDate": "2023-01-15",
-  "specifications": {
-    "power": "15kW",
-    "workArea": "762 x 406 x 508 mm",
-    "spindleSpeed": "8,100 RPM",
-    "toolCapacity": "24"
-  },
-  "location": "Setor A - Linha 1",
-  "status": "ATIVO"
-}
-```
+  @Column()
+  name: string;
 
-### Campos Obrigatórios:
-- `name`: Nome da máquina (2-100 caracteres)
-- `code`: Código único da máquina (2-50 caracteres)
+  @Column({ unique: true })
+  code: string; // Código único da máquina (ex: "MAQ-001")
 
-### Campos Opcionais:
-- `description`: Descrição detalhada (máximo 2000 caracteres)
-- `manufacturer`: Fabricante
-- `model`: Modelo
-- `serialNumber`: Número de série
-- `acquisitionDate`: Data de aquisição
-- `specifications`: Especificações técnicas (JSON)
-- `location`: Localização física
-- `status`: Status (padrão: ATIVO)
+  @Column({ type: 'text', nullable: true })
+  description?: string;
 
-### Status Válidos:
-- `ATIVO` - Em operação normal
-- `INATIVO` - Fora de operação
-- `MANUTENCAO` - Em manutenção
+  @Column()
+  teamId: string;
 
-### Response (201 Created):
-```json
-{
-  "id": "machine-uuid-123",
-  "name": "CNC-01",
-  "code": "CNC001",
-  "description": "Máquina CNC de Alta Precisão - Modelo XYZ-3000",
-  "manufacturer": "HAAS Automation",
-  "model": "VF-3",
-  "serialNumber": "12345ABC",
-  "acquisitionDate": "2023-01-15T00:00:00.000Z",
-  "specifications": {
-    "power": "15kW",
-    "workArea": "762 x 406 x 508 mm",
-    "spindleSpeed": "8,100 RPM",
-    "toolCapacity": "24"
-  },
-  "location": "Setor A - Linha 1",
-  "status": "ATIVO",
-  "createdAt": "2024-12-15T10:00:00.000Z",
-  "updatedAt": "2024-12-15T10:00:00.000Z",
-  "operatorCount": 0,
-  "skillCount": 0
+  @ManyToOne(() => Team)
+  @JoinColumn({ name: 'teamId' })
+  team: Team;
+
+  @Column({ type: 'varchar', nullable: true })
+  manufacturer?: string; // Fabricante
+
+  @Column({ type: 'varchar', nullable: true })
+  model?: string; // Modelo
+
+  @Column({ type: 'date', nullable: true })
+  installationDate?: Date; // Data de instalação
+
+  @Column({ default: true })
+  status: boolean;
+
+  @OneToMany(() => Skill, (skill) => skill.machine)
+  skills: Skill[];
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
 ```
 
 ---
 
-## 📋 Listar Máquinas
+## 📥 DTOs
 
-**GET** `/api/machines`
+```typescript
+// src/modules/machines/dto/create-machine.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNotEmpty,
+  IsUUID,
+  IsOptional,
+  IsDateString,
+  Matches,
+} from 'class-validator';
 
-Lista todas as máquinas com paginação e filtros.
+export class CreateMachineDto {
+  @ApiProperty({ example: 'Torno CNC 5 Eixos' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-### Query Parameters:
-- `page` (opcional): Número da página (padrão: 1)
-- `limit` (opcional): Itens por página (padrão: 10, máximo: 100)
-- `search` (opcional): Busca por nome, código ou fabricante
-- `status` (opcional): Filtrar por status (ATIVO, INATIVO, MANUTENCAO)
-- `manufacturer` (opcional): Filtrar por fabricante
-- `location` (opcional): Filtrar por localização
-- `hasOperator` (opcional): true/false - Com ou sem operador atribuído
-- `sort` (opcional): Campo para ordenação (padrão: code)
-- `order` (opcional): Direção (ASC, DESC) (padrão: ASC)
+  @ApiProperty({ example: 'MAQ-001' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^MAQ-\d{3,}$/, {
+    message: 'Código deve seguir o formato MAQ-XXX',
+  })
+  code: string;
 
-### Exemplos:
-```
-GET /api/machines?page=1&limit=20
-GET /api/machines?search=CNC
-GET /api/machines?status=ATIVO&manufacturer=HAAS
-GET /api/machines?hasOperator=false
-GET /api/machines?location=Setor A
-```
+  @ApiProperty({ example: 'Torno CNC de 5 eixos para usinagem de precisão', required: false })
+  @IsString()
+  @IsOptional()
+  description?: string;
 
-### Response (200 OK):
-```json
-{
-  "data": [
-    {
-      "id": "machine-uuid-123",
-      "name": "CNC-01",
-      "code": "CNC001",
-      "description": "Máquina CNC de Alta Precisão",
-      "manufacturer": "HAAS Automation",
-      "model": "VF-3",
-      "status": "ATIVO",
-      "location": "Setor A - Linha 1",
-      "operatorCount": 2,
-      "skillCount": 5,
-      "currentOperator": {
-        "workday": "OP12345",
-        "name": "João Silva"
-      },
-      "utilizationRate": 87.5,
-      "lastMaintenanceDate": "2024-11-15T00:00:00.000Z"
-    }
-  ],
-  "total": 25,
-  "page": 1,
-  "limit": 10,
-  "totalPages": 3
+  @ApiProperty({ example: 'team-uuid-123' })
+  @IsUUID()
+  @IsNotEmpty()
+  teamId: string;
+
+  @ApiProperty({ example: 'Haas Automation', required: false })
+  @IsString()
+  @IsOptional()
+  manufacturer?: string;
+
+  @ApiProperty({ example: 'VF-2SS', required: false })
+  @IsString()
+  @IsOptional()
+  model?: string;
+
+  @ApiProperty({ example: '2020-03-15', required: false })
+  @IsDateString()
+  @IsOptional()
+  installationDate?: string;
+}
+
+// src/modules/machines/dto/update-machine.dto.ts
+import { PartialType } from '@nestjs/swagger';
+import { CreateMachineDto } from './create-machine.dto';
+import { IsBoolean, IsOptional } from 'class-validator';
+
+export class UpdateMachineDto extends PartialType(CreateMachineDto) {
+  @IsBoolean()
+  @IsOptional()
+  status?: boolean;
+}
+
+// src/modules/machines/dto/query-machine.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
+
+export class QueryMachineDto {
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @ApiProperty({ required: false })
+  @IsUUID()
+  @IsOptional()
+  teamId?: string;
+
+  @ApiProperty({ required: false, default: true })
+  @IsOptional()
+  status?: boolean;
 }
 ```
 
 ---
 
-## 🔍 Buscar Máquina por ID
+## 🎮 Controller
 
-**GET** `/api/machines/:id`
+```typescript
+// src/modules/machines/machines.controller.ts
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { MachinesService } from './machines.service';
+import { CreateMachineDto } from './dto/create-machine.dto';
+import { UpdateMachineDto } from './dto/update-machine.dto';
+import { QueryMachineDto } from './dto/query-machine.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
-Busca uma máquina específica com todos os detalhes.
+@ApiTags('Machines')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('machines')
+export class MachinesController {
+  constructor(private readonly machinesService: MachinesService) {}
 
-### Response (200 OK):
-```json
-{
-  "id": "machine-uuid-123",
-  "name": "CNC-01",
-  "code": "CNC001",
-  "description": "Máquina CNC de Alta Precisão - Modelo XYZ-3000",
-  "manufacturer": "HAAS Automation",
-  "model": "VF-3",
-  "serialNumber": "12345ABC",
-  "acquisitionDate": "2023-01-15T00:00:00.000Z",
-  "specifications": {
-    "power": "15kW",
-    "workArea": "762 x 406 x 508 mm",
-    "spindleSpeed": "8,100 RPM",
-    "toolCapacity": "24"
-  },
-  "location": "Setor A - Linha 1",
-  "status": "ATIVO",
-  "createdAt": "2024-12-15T10:00:00.000Z",
-  "updatedAt": "2024-12-15T10:00:00.000Z",
-  "operators": [
-    {
-      "id": "tecnico-uuid-1",
-      "workday": "OP12345",
-      "user": {
-        "name": "João Silva",
-        "email": "joao@empresa.com"
-      },
-      "cargo": "Operador de Máquina CNC",
-      "shift": "PRIMEIRO",
-      "status": "ATIVO",
-      "performanceScore": 88.5
-    }
-  ],
-  "skills": [
-    {
-      "id": "skill-uuid-1",
-      "name": "Operação Básica CNC",
-      "category": "Técnica",
-      "description": "Conhecimento básico de operação da máquina CNC"
-    },
-    {
-      "id": "skill-uuid-2",
-      "name": "Setup e Calibração",
-      "category": "Técnica Avançada",
-      "description": "Configuração e calibração da máquina"
-    }
-  ],
-  "maintenanceHistory": [
-    {
-      "date": "2024-11-15T00:00:00.000Z",
-      "type": "Preventiva",
-      "description": "Manutenção preventiva trimestral",
-      "technician": "Carlos Manutenção"
-    }
-  ],
-  "statistics": {
-    "totalOperators": 2,
-    "averagePerformance": 86.5,
-    "utilizationRate": 87.5,
-    "totalOperatingHours": 2340,
-    "lastOperationDate": "2024-12-15T18:30:00.000Z"
+  @Post()
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Criar nova máquina' })
+  @ApiResponse({ status: 201, description: 'Máquina criada com sucesso' })
+  @ApiResponse({ status: 409, description: 'Código de máquina já existe' })
+  create(@Body() createMachineDto: CreateMachineDto) {
+    return this.machinesService.create(createMachineDto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar máquinas com filtros' })
+  @ApiResponse({ status: 200, description: 'Lista de máquinas' })
+  findAll(@Query() query: QueryMachineDto) {
+    return this.machinesService.findAll(query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar máquina por ID' })
+  @ApiResponse({ status: 200, description: 'Máquina encontrada' })
+  @ApiResponse({ status: 404, description: 'Máquina não encontrada' })
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.machinesService.findOne(id);
+  }
+
+  @Get(':id/skills')
+  @ApiOperation({ summary: 'Listar skills associadas à máquina' })
+  getSkills(@Param('id', ParseUUIDPipe) id: string) {
+    return this.machinesService.getSkills(id);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Atualizar máquina' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateMachineDto: UpdateMachineDto,
+  ) {
+    return this.machinesService.update(id, updateMachineDto);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.MASTER)
+  @ApiOperation({ summary: 'Deletar máquina (soft delete)' })
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.machinesService.remove(id);
   }
 }
 ```
 
 ---
 
-## 🔍 Buscar por Código
+## ⚙️ Service
 
-**GET** `/api/machines/code/:code`
+```typescript
+// src/modules/machines/machines.service.ts
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, ILike } from 'typeorm';
+import { Machine } from './entities/machine.entity';
+import { CreateMachineDto } from './dto/create-machine.dto';
+import { UpdateMachineDto } from './dto/update-machine.dto';
+import { QueryMachineDto } from './dto/query-machine.dto';
 
-Busca uma máquina pelo código único.
+@Injectable()
+export class MachinesService {
+  constructor(
+    @InjectRepository(Machine)
+    private machinesRepository: Repository<Machine>,
+  ) {}
 
-**Exemplo:** `GET /api/machines/code/CNC001`
+  async create(createMachineDto: CreateMachineDto): Promise<Machine> {
+    // Verificar se código já existe
+    const existingMachine = await this.machinesRepository.findOne({
+      where: { code: createMachineDto.code },
+    });
 
----
+    if (existingMachine) {
+      throw new ConflictException(
+        `Máquina com código ${createMachineDto.code} já existe`,
+      );
+    }
 
-## ✏️ Atualizar Máquina
-
-**PATCH** `/api/machines/:id`
-
-Atualiza informações de uma máquina existente.
-
-### Request Body (todos os campos opcionais):
-```json
-{
-  "name": "CNC-01 (Reformada)",
-  "description": "Máquina CNC de Alta Precisão - Reformada em 2024",
-  "location": "Setor A - Linha 2",
-  "status": "ATIVO",
-  "specifications": {
-    "power": "18kW",
-    "workArea": "762 x 406 x 508 mm",
-    "spindleSpeed": "10,000 RPM",
-    "toolCapacity": "32"
+    const machine = this.machinesRepository.create(createMachineDto);
+    return this.machinesRepository.save(machine);
   }
-}
-```
 
-### Response (200 OK):
-```json
-{
-  "id": "machine-uuid-123",
-  "name": "CNC-01 (Reformada)",
-  "description": "Máquina CNC de Alta Precisão - Reformada em 2024",
-  "location": "Setor A - Linha 2",
-  "status": "ATIVO",
-  "specifications": {
-    "power": "18kW",
-    "workArea": "762 x 406 x 508 mm",
-    "spindleSpeed": "10,000 RPM",
-    "toolCapacity": "32"
-  },
-  "updatedAt": "2024-12-15T14:30:00.000Z"
-}
-```
+  async findAll(query: QueryMachineDto): Promise<Machine[]> {
+    const { search, teamId, status } = query;
 
----
+    const queryBuilder = this.machinesRepository
+      .createQueryBuilder('machine')
+      .leftJoinAndSelect('machine.team', 'team')
+      .leftJoinAndSelect('machine.skills', 'skills');
 
-## 🔄 Alterar Status da Máquina
-
-**PATCH** `/api/machines/:id/status`
-
-Altera o status da máquina.
-
-### Request Body:
-```json
-{
-  "status": "MANUTENCAO",
-  "reason": "Manutenção preventiva agendada",
-  "expectedReturnDate": "2024-12-20"
-}
-```
-
-### Response (200 OK):
-```json
-{
-  "id": "machine-uuid-123",
-  "code": "CNC001",
-  "status": "MANUTENCAO",
-  "statusChangedAt": "2024-12-15T15:00:00.000Z",
-  "statusReason": "Manutenção preventiva agendada",
-  "expectedReturnDate": "2024-12-20T00:00:00.000Z"
-}
-```
-
----
-
-## 👤 Gerenciar Operadores da Máquina
-
-### Listar Operadores
-**GET** `/api/machines/:id/operators`
-
-```json
-{
-  "machineId": "machine-uuid-123",
-  "machineName": "CNC-01",
-  "machineCode": "CNC001",
-  "operators": [
-    {
-      "id": "tecnico-uuid-1",
-      "workday": "OP12345",
-      "user": {
-        "name": "João Silva",
-        "email": "joao@empresa.com"
-      },
-      "cargo": "Operador de Máquina CNC",
-      "shift": "PRIMEIRO",
-      "status": "ATIVO",
-      "assignedDate": "2024-01-15T00:00:00.000Z",
-      "performanceScore": 88.5,
-      "totalOperatingHours": 1200,
-      "skills": [
-        {
-          "name": "Operação Básica CNC",
-          "score": 90.0
-        }
-      ]
+    if (search) {
+      queryBuilder.andWhere(
+        '(machine.name ILIKE :search OR machine.code ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
-  ],
-  "total": 2,
-  "byShift": {
-    "PRIMEIRO": 1,
-    "SEGUNDO": 1,
-    "TERCEIRO": 0
+
+    if (teamId) {
+      queryBuilder.andWhere('machine.teamId = :teamId', { teamId });
+    }
+
+    if (status !== undefined) {
+      queryBuilder.andWhere('machine.status = :status', { status });
+    }
+
+    queryBuilder.orderBy('machine.name', 'ASC');
+
+    return queryBuilder.getMany();
   }
-}
-```
 
-### Atribuir Operador
-**POST** `/api/machines/:id/operators`
+  async findOne(id: string): Promise<Machine> {
+    const machine = await this.machinesRepository.findOne({
+      where: { id },
+      relations: ['team', 'skills'],
+    });
 
-```json
-{
-  "tecnicoId": "tecnico-uuid-1"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Operador atribuído à máquina com sucesso",
-  "machineId": "machine-uuid-123",
-  "tecnicoId": "tecnico-uuid-1"
-}
-```
-
-### Remover Operador
-**DELETE** `/api/machines/:id/operators/:tecnicoId`
-
-```json
-{
-  "message": "Operador removido da máquina com sucesso",
-  "machineId": "machine-uuid-123",
-  "tecnicoId": "tecnico-uuid-1"
-}
-```
-
----
-
-## 🎓 Gerenciar Habilidades da Máquina
-
-### Listar Habilidades
-**GET** `/api/machines/:id/skills`
-
-```json
-{
-  "machineId": "machine-uuid-123",
-  "machineName": "CNC-01",
-  "skills": [
-    {
-      "id": "skill-uuid-1",
-      "name": "Operação Básica CNC",
-      "category": "Técnica",
-      "description": "Conhecimento básico de operação da máquina CNC",
-      "techniciansWithSkill": 5,
-      "averageScore": 85.0
-    },
-    {
-      "id": "skill-uuid-2",
-      "name": "Setup e Calibração",
-      "category": "Técnica Avançada",
-      "description": "Configuração e calibração da máquina",
-      "techniciansWithSkill": 2,
-      "averageScore": 82.0
+    if (!machine) {
+      throw new NotFoundException(`Máquina com ID ${id} não encontrada`);
     }
-  ],
-  "total": 5
-}
-```
 
-### Adicionar Habilidade
-**POST** `/api/machines/:id/skills`
-
-```json
-{
-  "name": "Programação CNC Avançada",
-  "category": "Programação",
-  "description": "Programação de operações complexas na máquina CNC"
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "id": "skill-uuid-3",
-  "name": "Programação CNC Avançada",
-  "category": "Programação",
-  "description": "Programação de operações complexas na máquina CNC",
-  "machineId": "machine-uuid-123",
-  "createdAt": "2024-12-15T11:00:00.000Z"
-}
-```
-
-### Atualizar Habilidade
-**PATCH** `/api/machines/:id/skills/:skillId`
-
-```json
-{
-  "name": "Programação CNC Master",
-  "description": "Nível expert em programação CNC"
-}
-```
-
-### Remover Habilidade
-**DELETE** `/api/machines/:id/skills/:skillId`
-
----
-
-## 🔧 Histórico de Manutenção
-
-### Listar Manutenções
-**GET** `/api/machines/:id/maintenance`
-
-```json
-{
-  "machineId": "machine-uuid-123",
-  "machineName": "CNC-01",
-  "maintenanceHistory": [
-    {
-      "id": "maint-uuid-1",
-      "date": "2024-11-15T00:00:00.000Z",
-      "type": "Preventiva",
-      "description": "Manutenção preventiva trimestral",
-      "technician": "Carlos Manutenção",
-      "duration": 4,
-      "cost": 1500.00,
-      "status": "Concluída"
-    },
-    {
-      "id": "maint-uuid-2",
-      "date": "2024-08-10T00:00:00.000Z",
-      "type": "Corretiva",
-      "description": "Substituição de rolamento",
-      "technician": "Pedro Técnico",
-      "duration": 6,
-      "cost": 2800.00,
-      "status": "Concluída"
-    }
-  ],
-  "total": 12,
-  "statistics": {
-    "totalMaintenances": 12,
-    "preventiveCount": 8,
-    "correctiveCount": 4,
-    "totalCost": 18500.00,
-    "totalDowntime": 48,
-    "nextScheduledMaintenance": "2025-02-15T00:00:00.000Z"
+    return machine;
   }
-}
-```
 
-### Registrar Manutenção
-**POST** `/api/machines/:id/maintenance`
-
-```json
-{
-  "date": "2024-12-15",
-  "type": "Preventiva",
-  "description": "Troca de óleo e lubrificação geral",
-  "technician": "Carlos Manutenção",
-  "duration": 3,
-  "cost": 800.00,
-  "parts": [
-    {
-      "name": "Óleo hidráulico",
-      "quantity": 5,
-      "cost": 150.00
-    }
-  ]
-}
-```
-
-**Tipos de Manutenção:**
-- `Preventiva` - Manutenção programada
-- `Corretiva` - Reparo de falha
-- `Preditiva` - Baseada em análise de dados
-- `Emergencial` - Urgente
-
----
-
-## 📊 Estatísticas da Máquina
-
-### Estatísticas Gerais
-**GET** `/api/machines/:id/statistics`
-
-```json
-{
-  "machineId": "machine-uuid-123",
-  "machineName": "CNC-01",
-  "period": "2024-Q4",
-  "operational": {
-    "totalOperatingHours": 2340,
-    "utilizationRate": 87.5,
-    "downtime": 156,
-    "availability": 93.8
-  },
-  "operators": {
-    "total": 2,
-    "averagePerformance": 86.5,
-    "averageSkillScore": 84.2
-  },
-  "maintenance": {
-    "totalMaintenances": 12,
-    "preventiveCount": 8,
-    "correctiveCount": 4,
-    "totalCost": 18500.00,
-    "mtbf": 195,
-    "mttr": 4.5
-  },
-  "performance": {
-    "productivity": 92.3,
-    "quality": 96.5,
-    "efficiency": 88.7
+  async getSkills(id: string) {
+    const machine = await this.findOne(id);
+    return machine.skills;
   }
-}
-```
 
-**Métricas:**
-- `utilizationRate`: Taxa de utilização (%)
-- `availability`: Disponibilidade (%)
-- `mtbf`: Tempo médio entre falhas (horas)
-- `mttr`: Tempo médio de reparo (horas)
+  async update(id: string, updateMachineDto: UpdateMachineDto): Promise<Machine> {
+    const machine = await this.findOne(id);
 
-### Performance por Período
-**GET** `/api/machines/:id/performance`
+    // Verificar conflito de código se estiver sendo alterado
+    if (updateMachineDto.code && updateMachineDto.code !== machine.code) {
+      const existingMachine = await this.machinesRepository.findOne({
+        where: { code: updateMachineDto.code },
+      });
 
-Query Parameters:
-- `startDate`: Data inicial (YYYY-MM-DD)
-- `endDate`: Data final (YYYY-MM-DD)
-- `groupBy`: Agrupar por (day, week, month, quarter)
-
-```json
-{
-  "machineId": "machine-uuid-123",
-  "startDate": "2024-10-01",
-  "endDate": "2024-12-31",
-  "data": [
-    {
-      "period": "2024-10",
-      "operatingHours": 720,
-      "utilizationRate": 85.5,
-      "downtime": 52,
-      "maintenanceCount": 1
-    },
-    {
-      "period": "2024-11",
-      "operatingHours": 780,
-      "utilizationRate": 89.2,
-      "downtime": 48,
-      "maintenanceCount": 2
-    },
-    {
-      "period": "2024-12",
-      "operatingHours": 840,
-      "utilizationRate": 87.8,
-      "downtime": 56,
-      "maintenanceCount": 1
+      if (existingMachine) {
+        throw new ConflictException(
+          `Máquina com código ${updateMachineDto.code} já existe`,
+        );
+      }
     }
-  ],
-  "averages": {
-    "utilizationRate": 87.5,
-    "downtime": 52
+
+    Object.assign(machine, updateMachineDto);
+    return this.machinesRepository.save(machine);
+  }
+
+  async remove(id: string): Promise<{ message: string }> {
+    const machine = await this.findOne(id);
+    machine.status = false;
+    await this.machinesRepository.save(machine);
+    return { message: 'Máquina desativada com sucesso' };
   }
 }
 ```
 
 ---
 
-## 📈 Comparar Máquinas
+## 🗃️ Migration
 
-**GET** `/api/machines/compare`
+```typescript
+// src/database/migrations/CreateMachinesTable.ts
+import { MigrationInterface, QueryRunner, Table, TableForeignKey, TableIndex } from 'typeorm';
 
-Query Parameters:
-- `machineIds`: IDs das máquinas separados por vírgula
-- `period`: Período para comparação (ex: 2024-Q4)
+export class CreateMachinesTable1234567893 implements MigrationInterface {
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.createTable(
+      new Table({
+        name: 'machines',
+        columns: [
+          {
+            name: 'id',
+            type: 'uuid',
+            isPrimary: true,
+            generationStrategy: 'uuid',
+            default: 'uuid_generate_v4()',
+          },
+          {
+            name: 'name',
+            type: 'varchar',
+          },
+          {
+            name: 'code',
+            type: 'varchar',
+            isUnique: true,
+          },
+          {
+            name: 'description',
+            type: 'text',
+            isNullable: true,
+          },
+          {
+            name: 'teamId',
+            type: 'uuid',
+          },
+          {
+            name: 'manufacturer',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'model',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'installationDate',
+            type: 'date',
+            isNullable: true,
+          },
+          {
+            name: 'status',
+            type: 'boolean',
+            default: true,
+          },
+          {
+            name: 'createdAt',
+            type: 'timestamp',
+            default: 'now()',
+          },
+          {
+            name: 'updatedAt',
+            type: 'timestamp',
+            default: 'now()',
+          },
+        ],
+      }),
+      true,
+    );
 
-```json
-{
-  "period": "2024-Q4",
-  "comparison": [
-    {
-      "machineId": "machine-uuid-123",
-      "machineName": "CNC-01",
-      "code": "CNC001",
-      "utilizationRate": 87.5,
-      "operatingHours": 2340,
-      "downtime": 156,
-      "maintenanceCost": 4500.00,
-      "operatorCount": 2,
-      "averagePerformance": 86.5
-    },
-    {
-      "machineId": "machine-uuid-456",
-      "machineName": "CNC-02",
-      "code": "CNC002",
-      "utilizationRate": 84.2,
-      "operatingHours": 2250,
-      "downtime": 182,
-      "maintenanceCost": 5200.00,
-      "operatorCount": 2,
-      "averagePerformance": 84.1
-    }
-  ]
+    await queryRunner.createForeignKey(
+      'machines',
+      new TableForeignKey({
+        columnNames: ['teamId'],
+        referencedTableName: 'teams',
+        referencedColumnNames: ['id'],
+        onDelete: 'RESTRICT',
+      }),
+    );
+
+    await queryRunner.createIndex(
+      'machines',
+      new TableIndex({
+        name: 'IDX_MACHINE_CODE',
+        columnNames: ['code'],
+      }),
+    );
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.dropTable('machines');
+  }
 }
 ```
 
 ---
 
-## 🏆 Rankings de Máquinas
+## 📍 Endpoints
 
-**GET** `/api/machines/rankings`
-
-Query Parameters:
-- `period`: Período (ex: 2024-Q4)
-- `metric`: Métrica (utilization, performance, efficiency)
-- `limit`: Número de máquinas (padrão: 10)
-
-```json
-{
-  "period": "2024-Q4",
-  "metric": "utilization",
-  "rankings": [
-    {
-      "rank": 1,
-      "machineId": "machine-uuid-123",
-      "machineName": "CNC-01",
-      "code": "CNC001",
-      "value": 87.5,
-      "operatingHours": 2340
-    }
-  ],
-  "totalMachines": 25
-}
-```
+| Método | Endpoint | Descrição | Auth |
+|--------|----------|-----------|------|
+| POST | `/machines` | Criar máquina | Master |
+| GET | `/machines` | Listar máquinas | Todos |
+| GET | `/machines/:id` | Buscar por ID | Todos |
+| GET | `/machines/:id/skills` | Listar skills | Todos |
+| PATCH | `/machines/:id` | Atualizar | Master |
+| DELETE | `/machines/:id` | Desativar | Master |
 
 ---
 
-## ❌ Excluir Máquina
+## ✅ Checklist
 
-**DELETE** `/api/machines/:id`
-
-Remove uma máquina do sistema.
-
-### Regras:
-- Apenas máquinas sem operadores atribuídos podem ser excluídas
-- Máquinas com histórico são apenas desativadas (soft delete)
-- Habilidades associadas são removidas
-
-### Response (200 OK):
-```json
-{
-  "message": "Máquina removida com sucesso",
-  "id": "machine-uuid-123"
-}
-```
-
----
-
-## ⚠️ Códigos de Erro
-
-- `400 Bad Request` - Dados inválidos ou campos obrigatórios ausentes
-- `401 Unauthorized` - Token JWT inválido ou ausente
-- `403 Forbidden` - Sem permissão para gerenciar máquinas
-- `404 Not Found` - Máquina não encontrada
-- `409 Conflict` - Código da máquina já existe ou possui operadores atribuídos
-- `500 Internal Server Error` - Erro interno do servidor
-
----
-
-## 📝 Observações Importantes
-
-1. **Código Único**: Cada máquina deve ter um código único no sistema
-2. **Status**: Controla disponibilidade e permite rastreamento de manutenção
-3. **Operadores**: Múltiplos operadores podem ser atribuídos (por turno)
-4. **Habilidades**: Definem competências necessárias para operar a máquina
-5. **Manutenção**: Histórico completo de manutenções preventivas e corretivas
-6. **Métricas**: MTBF, MTTR, utilização e disponibilidade são calculadas automaticamente
-7. **Permissões**:
-   - `MASTER`: Acesso total a todas as máquinas
-   - `SUPERVISOR`: Pode gerenciar máquinas de sua área
-   - `TECNICO`: Visualiza apenas máquinas atribuídas
-8. **Especificações**: Armazenadas como JSON para flexibilidade
+- [ ] Criar entidade Machine
+- [ ] Implementar validação de código único
+- [ ] Criar migration
+- [ ] Implementar filtros de busca
+- [ ] Testar CRUD completo
+- [ ] Validar relacionamento com Teams
