@@ -88,7 +88,7 @@ export default function CadastroPage() {
   }, [colaboradorForm.teamId])
 
   if (!user || user.role !== "master") {
-    router.push("/")
+    router.replace("/login")
     return null
   }
 

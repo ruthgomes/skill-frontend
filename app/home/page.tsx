@@ -2,36 +2,116 @@
 
 import { useAuth } from "@/core/contexts"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { AppLayout } from "@/shared/components/layout"
-import { mockTecnicos } from "@/shared/data"
+import { analyticsService } from "@/core/services"
+import type { DashboardMetrics } from "@/core/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import { Loader2, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  const hasRedirected = useRef(false)
+  
+  // Estados para dados do dashboard
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user || user.role !== "master") {
-      router.push("/")
-    }
-  }, [user, router])
+    // Previne múltiplos redirecionamentos
+    if (hasRedirected.current || authLoading) return
 
-  if (!user || user.role !== "master") {
+    // Redireciona para login apenas se NÃO estiver autenticado
+    if (!user) {
+      hasRedirected.current = true
+      router.replace("/login")
+    }
+  }, [user, authLoading, router])
+
+  // Busca métricas do dashboard
+  useEffect(() => {
+    if (!user) return
+
+    const fetchDashboardMetrics = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        console.log('🔄 Buscando métricas do dashboard...')
+        
+        const data = await analyticsService.getDashboard()
+        
+        console.log('✅ Métricas carregadas:', data)
+        setMetrics(data)
+      } catch (err) {
+        console.error('❌ Erro ao buscar métricas:', err)
+        setError(err instanceof Error ? err.message : 'Erro ao carregar dashboard')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardMetrics()
+  }, [user])
+
+  // Permite acesso para master E supervisor
+  if (!user) {
     return null
   }
 
-  const onlineCount = mockTecnicos.filter((op) => op.status === "ativo").length
-  const coordCount = 5 // Quantidade de coordenadores (mock)
-  const machinesCount = 8
-  const auxiliaresCount = 10 // Quantidade de auxiliares (mock)
-  const femaleCount = 12 // Quantidade de mulheres (mock)
-  const maleCount = 18 // Quantidade de homens (mock)
-  const juniorCount = 8 // Quantidade de juniores (mock)
-  const plenoCount = 12 // Quantidade de plenos (mock)
-  const seniorCount = 7 // Quantidade de sêniores (mock)
-  const specialistCount = 3 // Quantidade de especialistas (mock)
+  // Loading state
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <p className="text-muted-foreground">Carregando dashboard...</p>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="p-8">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {error}
+            </AlertDescription>
+          </Alert>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  // Valores com fallback para mock (caso backend não retorne alguns dados)
+  const totalTecnicos = metrics?.totalTecnicos || 0
+  const averageScore = typeof metrics?.averageScore === 'string' 
+    ? parseFloat(metrics.averageScore) 
+    : 0
+  
+  // Dados temporários até backend fornecer
+  const onlineCount = totalTecnicos // Backend deverá fornecer campo específico
+  const machinesCount = 0 // Backend deverá fornecer
+  const totalTeams = 0 // Backend deverá fornecer
+  
+  // Dados hardcoded temporários (até backend fornecer)
+  const coordCount = 5
+  const auxiliaresCount = 10
+  const femaleCount = 12
+  const maleCount = 18
+  const juniorCount = 8
+  const plenoCount = 12
+  const seniorCount = 7
+  const specialistCount = 3
 
   const shiftScoreData = [
     {
@@ -120,30 +200,51 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-primary/10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Dados reais do backend */}
+          <Card className="border-primary/10 bg-primary/5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Tec</CardTitle>
+              <CardTitle className="text-xs font-semibold text-primary">Total Técnicos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{onlineCount}</div>
+              <div className="text-2xl font-bold text-primary">{totalTecnicos}</div>
+              <p className="text-[10px] text-muted-foreground mt-1">cadastrados no sistema</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/10 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold text-primary">Técnicos Ativos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{onlineCount}</div>
               <p className="text-[10px] text-muted-foreground mt-1">colaboradores ativos</p>
             </CardContent>
           </Card>
 
-          <Card className="border-primary/10">
+          <Card className="border-primary/10 bg-primary/5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Coord</CardTitle>
+              <CardTitle className="text-xs font-semibold text-primary">Pontuação Média</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{coordCount}</div>
-              <p className="text-[10px] text-muted-foreground mt-1">coordenadores</p>
+              <div className="text-2xl font-bold text-primary">{averageScore.toFixed(1)}</div>
+              <p className="text-[10px] text-muted-foreground mt-1">score médio geral</p>
             </CardContent>
           </Card>
 
-          <Card className="border-primary/10">
+          <Card className="border-primary/10 bg-primary/5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground">Máquinas</CardTitle>
+              <CardTitle className="text-xs font-semibold text-primary">Total de Times</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{totalTeams}</div>
+              <p className="text-[10px] text-muted-foreground mt-1">times cadastrados</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/10 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-semibold text-primary">Máquinas</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{machinesCount}</div>
@@ -151,16 +252,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-primary/10">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Aux</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{auxiliaresCount}</div>
-              <p className="text-[10px] text-muted-foreground mt-1">auxiliares</p>
-            </CardContent>
-          </Card>
-
+          {/* Dados temporários (até backend fornecer) */}
           <Card className="border-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Mul.</CardTitle>

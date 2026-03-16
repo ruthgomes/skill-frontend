@@ -2,9 +2,9 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useCallback, useEffect } from "react"
-import { generateId } from "@/core/utils"
+import { authService } from "@/core/services"
 
-export type UserRole = "master" | "tecnico"
+export type UserRole = "master" | "supervisor"
 
 export interface AuthUser {
   id: string
@@ -12,6 +12,7 @@ export interface AuthUser {
   name: string
   role: UserRole
   workday?: string
+  isActive: boolean
 }
 
 interface AuthContextType {
@@ -25,16 +26,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Chave para armazenamento local
 const AUTH_STORAGE_KEY = "skillfix_auth_user"
-
-// Usuários mockados para demonstração
-// TODO: Remover quando integrar com backend real
-const mockUsers: Record<string, { name: string; role: UserRole; workday?: string; password: string }> = {
-  "master@example.com": { 
-    name: "Maria Silva", 
-    role: "master",
-    password: "Demo@2024!" // Senha temporária para demo
-  },
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -72,35 +63,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
     try {
-      // Simulação de chamada de API
-      await new Promise((resolve) => setTimeout(resolve, 500))
-
-      const userData = mockUsers[email]
+      console.log('🔐 Tentando fazer login...')
+      console.log('📧 Email:', email)
       
-      if (!userData || userData.password !== password) {
-        throw new Error("Credenciais inválidas")
-      }
-
+      // Chama o backend real
+      const loginResponse = await authService.login({ email, password })
+      
+      console.log('✅ Login realizado com sucesso!')
+      console.log('🔑 Access Token recebido:', loginResponse.accessToken.substring(0, 20) + '...')
+      
+      // WORKAROUND: Como /auth/me não existe, usamos /auth/refresh para obter dados do usuário
+      // O endpoint refresh retorna: { accessToken, refreshToken, user }
+      console.log('🔄 Buscando dados do usuário via refresh...')
+      const refreshResponse = await authService.refreshToken({ 
+        refreshToken: loginResponse.refreshToken 
+      })
+      
+      console.log('👤 Dados do usuário:', refreshResponse.user)
+      
       const authenticatedUser: AuthUser = {
-        id: generateId(),
-        email,
-        name: userData.name,
-        role: userData.role,
-        workday: userData.workday,
+        id: refreshResponse.user.id,
+        email: refreshResponse.user.email,
+        name: refreshResponse.user.name,
+        role: refreshResponse.user.role as UserRole,
+        workday: refreshResponse.user.workday || undefined,
+        isActive: refreshResponse.user.isActive,
       }
 
       setUser(authenticatedUser)
+      
+      console.log('✅ Usuário autenticado e salvo no contexto!')
+      
     } catch (error) {
+      console.error('❌ Erro no login:', error)
       setUser(null)
-      throw error
+      
+      // Lança erro mais amigável
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error("Erro ao fazer login. Verifique suas credenciais.")
     } finally {
       setIsLoading(false)
     }
   }, [])
 
-  const logout = useCallback(() => {
-    setUser(null)
-    localStorage.removeItem(AUTH_STORAGE_KEY)
+  const logout = useCallback(async () => {
+    try {
+      console.log('🚪 Fazendo logout...')
+      
+      // Chama o backend para fazer logout
+      await authService.logout()
+      
+      console.log('✅ Logout realizado!')
+    } catch (error) {
+      console.error('⚠️ Erro no logout:', error)
+      // Continua mesmo se der erro no backend
+    } finally {
+      // Sempre limpa o estado local
+      setUser(null)
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+    }
   }, [])
 
   return <AuthContext.Provider value={{ user, isLoading, login, logout }}>{children}</AuthContext.Provider>

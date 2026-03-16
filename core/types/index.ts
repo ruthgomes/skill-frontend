@@ -3,6 +3,8 @@
  * Exporta todos os tipos TypeScript centrais da aplicação
  */
 
-// TODO: Mover tipos compartilhados de outros arquivos para cá
+// API Types
+export * from './api.types'
+
+// TODO: Adicionar mais tipos conforme necessário
 // export * from './common.types'
-// export * from './api.types'

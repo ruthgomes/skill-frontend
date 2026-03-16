@@ -3,6 +3,32 @@
  * Centralize valores fixos aqui para facilitar manutenção
  */
 
+// Configurações da API
+export const API_CONFIG = {
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+  apiPrefix: '/api/v1',
+  timeout: 30000, // 30 segundos
+  withCredentials: false,
+} as const
+
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/auth/login',
+    REFRESH: '/auth/refresh',
+    LOGOUT: '/auth/logout',
+    ME: '/auth/me',
+  },
+  USERS: '/users',
+  TECNICOS: '/tecnicos',
+  TEAMS: '/teams',
+  SUBTIMES: '/subtimes',
+  MACHINES: '/machines',
+  SKILLS: '/skills',
+  EVALUATIONS: '/evaluations',
+  QUARTERLY_NOTES: '/quarterly-notes',
+  ANALYTICS: '/analytics',
+} as const
+
 // Cores do tema
 export const THEME_COLORS = {
   primary: '#0096d6',

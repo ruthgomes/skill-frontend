@@ -14,7 +14,7 @@ export default function UsuariosPage() {
 
   useEffect(() => {
     if (!user || user.role !== "master") {
-      router.push("/")
+      router.replace("/login")
     }
   }, [user, router])
 

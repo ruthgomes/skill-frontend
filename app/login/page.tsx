@@ -37,26 +37,13 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      router.push("/home")
+      // Usa replace em vez de push para não adicionar no histórico
+      router.replace("/home")
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Email ou senha inválidos"
       setError(errorMessage)
       showErrorToast(errorMessage)
     }
-  }
-
-  const demoAccounts = [
-    { 
-      email: "master@example.com", 
-      name: "Master/Supervisor",
-      hint: "Use a senha: Demo@2024!"
-    },
-  ]
-
-  const fillDemoAccount = (demoEmail: string) => {
-    setEmail(demoEmail)
-    // Não preencher a senha automaticamente - usuário deve digitá-la
-    setPassword("")
   }
 
   return (
@@ -141,30 +128,6 @@ export default function LoginPage() {
                 {isLoading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
-
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-[10px]">
-                <span className="px-2 bg-white text-gray-500 uppercase tracking-wider">Contas de Demo</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {demoAccounts.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => fillDemoAccount(account.email)}
-                  className="w-full p-2.5 rounded-lg transition-colors text-left bg-[#e6f2f8] hover:bg-[#cce5f0]"
-                >
-                  <div className="text-xs font-semibold text-gray-900">{account.name}</div>
-                  <div className="text-[11px] text-gray-600 mt-0.5">{account.email}</div>
-                  <div className="text-[11px] text-gray-500 mt-1 italic">{account.hint}</div>
-                </button>
-              ))}
-            </div>
           </CardContent>
         </Card>
       </div>
