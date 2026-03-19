@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -12,10 +12,13 @@ import {
   Target,
   UserCircle,
   User2,
+  Loader2,
+  AlertCircle,
 } from "lucide-react"
 import { useNotification } from "@/core/contexts"
 import { AppLayout } from "@/shared/components/layout"
 import { Button } from "@/shared/components/ui/button"
+import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 import {
   Card,
   CardContent,
@@ -42,12 +45,10 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import {
-  mockTeams,
-  mockSubTeams,
-  mockTecnicos,
-  type SubTeam,
-} from "@/shared/data"
+import type { SubTeam, Team, Tecnico } from "@/core/types"
+import teamsService from "@/core/services/teams.service"
+import subtimesService from "@/core/services/subtimes.service"
+import tecnicosService from "@/core/services/tecnicos.service"
 import Link from "next/link"
 
 type FormData = {
@@ -62,10 +63,12 @@ export default function TeamDetailPage() {
   const { success, error: showError } = useNotification()
   const teamId = params.id as string
 
-  const team = mockTeams.find((t) => t.id === teamId)
-  const [subTeams, setSubTeams] = useState<SubTeam[]>(
-    mockSubTeams.filter((st) => st.parentTeamId === teamId)
-  )
+  const [team, setTeam] = useState<Team | null>(null)
+  const [subTeams, setSubTeams] = useState<SubTeam[]>([])
+  const [tecnicos, setTecnicos] = useState<Tecnico[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingSubTeam, setEditingSubTeam] = useState<SubTeam | null>(null)
@@ -75,79 +78,181 @@ export default function TeamDetailPage() {
     coordenadorId: "",
   })
 
+  // Carregar dados do backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        console.log('🔄 Buscando time e subtimes...')
+        
+        const [teamData, subtimesData, tecnicosResponse] = await Promise.all([
+          teamsService.findOne(teamId),
+          subtimesService.findByTeam(teamId),
+          tecnicosService.findAll(),
+        ])
+        
+        // Extrair array de técnicos da resposta paginada
+        const tecnicosData = Array.isArray(tecnicosResponse) 
+          ? tecnicosResponse 
+          : tecnicosResponse.data || []
+        
+        console.log('✅ Dados carregados:', { team: teamData, subtimes: subtimesData, tecnicos: tecnicosData })
+        setTeam(teamData)
+        setSubTeams(subtimesData)
+        setTecnicos(tecnicosData)
+      } catch (err) {
+        console.error('❌ Erro ao buscar dados:', err)
+        setError(err instanceof Error ? err.message : 'Erro ao carregar time')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [teamId])
+
   // Buscar coordenadores disponíveis
   const availableCoordinators = useMemo(() => {
-    return mockTecnicos.filter((t) => t.senioridade === "Coordenador")
-  }, [])
+    // Filtrar por position que contenha "Coordenador" ou similar, ou por senioridade
+    return tecnicos.filter((t) => 
+      t.senioridade === "Coordenador" ||
+      t.senioridade === "Supervisor" ||
+      t.position?.toLowerCase().includes("coordenador") || 
+      t.position?.toLowerCase().includes("líder") ||
+      t.position?.toLowerCase().includes("supervisor")
+    )
+  }, [tecnicos])
 
-  if (!team) {
+  // Loading state
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Time não encontrado</h2>
-          <Button onClick={() => router.push("/times")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para Times
-          </Button>
-        </Card>
-      </div>
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <p className="text-muted-foreground">Carregando time...</p>
+          </div>
+        </div>
+      </AppLayout>
     )
   }
 
-  const handleCreateOrUpdate = () => {
+  // Error state
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="max-w-md w-full space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <div className="flex gap-2">
+              <Button onClick={() => window.location.reload()} variant="outline" className="flex-1">
+                Tentar Novamente
+              </Button>
+              <Button onClick={() => router.push("/times")} className="flex-1">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar para Times
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  // Team not found
+  if (!team) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <Card className="p-8 text-center">
+            <h2 className="text-2xl font-bold mb-4">Time não encontrado</h2>
+            <Button onClick={() => router.push("/times")}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar para Times
+            </Button>
+          </Card>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  const handleCreateOrUpdate = async () => {
     if (!formData.name || !formData.description) {
       showError("Preencha todos os campos obrigatórios!")
       return
     }
 
-    if (editingSubTeam) {
-      setSubTeams(
-        subTeams.map((st) =>
-          st.id === editingSubTeam.id
-            ? {
-                ...st,
-                name: formData.name,
-                description: formData.description,
-                coordenadorId: formData.coordenadorId || undefined,
-                updatedAt: new Date().toISOString(),
-              }
-            : st
+    try {
+      setSubmitting(true)
+      console.log('🔄 Salvando sub-time...', { formData, editingSubTeam })
+
+      if (editingSubTeam) {
+        // Atualizar sub-time existente
+        const updated = await subtimesService.update(editingSubTeam.id, {
+          name: formData.name,
+          description: formData.description,
+          coordenadorId: formData.coordenadorId || undefined,
+        })
+        
+        setSubTeams(
+          subTeams.map((st) => (st.id === editingSubTeam.id ? updated : st))
         )
-      )
-      success("Sub-time atualizado com sucesso!")
-    } else {
-      const newSubTeam: SubTeam = {
-        id: `subteam${Date.now()}`,
-        name: formData.name,
-        description: formData.description,
-        parentTeamId: teamId,
-        coordenadorId: formData.coordenadorId || undefined,
-        functions: [],
-        evaluationCriteria: [],
-        members: [],
-        status: "ativo",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        success("Sub-time atualizado com sucesso!")
+        console.log('✅ Sub-time atualizado:', updated)
+      } else {
+        // Criar novo sub-time
+        const newSubTeam = await subtimesService.create({
+          name: formData.name,
+          description: formData.description,
+          parentTeamId: teamId,
+          coordenadorId: formData.coordenadorId || undefined,
+          functions: [],
+          evaluationCriteria: [],
+        })
+        
+        setSubTeams([...subTeams, newSubTeam])
+        success("Sub-time criado com sucesso!")
+        console.log('✅ Sub-time criado:', newSubTeam)
       }
-      setSubTeams([...subTeams, newSubTeam])
-      success("Sub-time criado com sucesso!")
+      
+      handleCloseDialog()
+    } catch (err) {
+      console.error('❌ Erro ao salvar sub-time:', err)
+      showError(err instanceof Error ? err.message : 'Erro ao salvar sub-time')
+    } finally {
+      setSubmitting(false)
     }
-    handleCloseDialog()
   }
 
   const handleEdit = (subTeam: SubTeam) => {
     setEditingSubTeam(subTeam)
     setFormData({
       name: subTeam.name,
-      description: subTeam.description,
+      description: subTeam.description || "",
       coordenadorId: subTeam.coordenadorId || "",
     })
     setDialogOpen(true)
   }
 
-  const handleDelete = (subTeamId: string) => {
-    if (confirm("Tem certeza que deseja excluir este sub-time?")) {
+  const handleDelete = async (subTeamId: string) => {
+    if (!confirm("Tem certeza que deseja excluir este sub-time?")) {
+      return
+    }
+
+    try {
+      console.log('🔄 Deletando sub-time:', subTeamId)
+      await subtimesService.remove(subTeamId)
+      
       setSubTeams(subTeams.filter((st) => st.id !== subTeamId))
+      success("Sub-time excluído com sucesso!")
+      console.log('✅ Sub-time deletado')
+    } catch (err) {
+      console.error('❌ Erro ao deletar sub-time:', err)
+      showError(err instanceof Error ? err.message : 'Erro ao deletar sub-time')
     }
   }
 
@@ -161,26 +266,20 @@ export default function TeamDetailPage() {
     })
   }
 
-  const getCoordenadorName = (coordenadorId?: string) => {
+  const getCoordenadorName = (coordenadorId?: string | null) => {
     if (!coordenadorId) return "Não definido"
-    const coordenador = mockTecnicos.find((t) => t.id === coordenadorId)
+    const coordenador = tecnicos.find((t) => t.id === coordenadorId)
     return coordenador ? coordenador.name : "Não definido"
   }
 
-  const getMemberNames = (memberIds: string[]) => {
-    return memberIds
-      .map((id) => {
-        const member = mockTecnicos.find((t) => t.id === id)
-        return member ? member.name : null
-      })
-      .filter(Boolean)
+  const getMemberNames = (members?: Tecnico[]) => {
+    if (!members || members.length === 0) return []
+    return members.map((m) => m.name)
   }
 
   const getGenderCount = (subTeam: SubTeam, gender: "M" | "F") => {
-    return subTeam.members.filter((memberId) => {
-      const member = mockTecnicos.find((t) => t.id === memberId)
-      return member?.gender === gender
-    }).length
+    if (!subTeam.tecnicos) return 0
+    return subTeam.tecnicos.filter((t) => t.gender === gender).length
   }
 
   const getSenioridadeCount = (subTeam: SubTeam) => {
@@ -192,9 +291,10 @@ export default function TeamDetailPage() {
       Especialista: 0,
     }
 
-    subTeam.members.forEach((memberId) => {
-      const member = mockTecnicos.find((t) => t.id === memberId)
-      if (member && member.senioridade in counts) {
+    if (!subTeam.tecnicos) return counts
+
+    subTeam.tecnicos.forEach((member) => {
+      if (member.senioridade && member.senioridade in counts) {
         counts[member.senioridade as keyof typeof counts]++
       }
     })
@@ -218,7 +318,7 @@ export default function TeamDetailPage() {
           <div className="flex items-center space-x-4">
             <div
               className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: team.color }}
+              style={{ backgroundColor: team.color || "#3b82f6" }}
             />
             <div>
               <h1 className="text-3xl font-bold tracking-tight">{team.name}</h1>
@@ -250,7 +350,7 @@ export default function TeamDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {subTeams.reduce((acc, st) => acc + st.members.length, 0)}
+                {subTeams.reduce((acc, st) => acc + (st.tecnicos?.length || 0), 0)}
               </div>
             </CardContent>
           </Card>
@@ -296,10 +396,10 @@ export default function TeamDetailPage() {
                             {subTeam.name}
                             <Badge
                               variant={
-                                subTeam.status === "ativo" ? "default" : "secondary"
+                                subTeam.status ? "default" : "secondary"
                               }
                             >
-                              {subTeam.status}
+                              {subTeam.status ? "Ativo" : "Inativo"}
                             </Badge>
                           </CardTitle>
                           <CardDescription className="mt-2">
@@ -349,7 +449,7 @@ export default function TeamDetailPage() {
                                 <Users className="mr-2 h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">Membros:</span>
                                 <span className="ml-2 text-muted-foreground">
-                                  {subTeam.members.length}
+                                  {subTeam.tecnicos?.length || 0}
                                 </span>
                               </div>
                             </div>
@@ -370,13 +470,13 @@ export default function TeamDetailPage() {
                               </div>
                             </div>
                           </div>
-                          {subTeam.members.length > 0 && (
+                          {(subTeam.tecnicos?.length || 0) > 0 && (
                             <div className="mt-4">
                               <h4 className="font-semibold text-sm mb-2">
                                 Membros do Sub-time:
                               </h4>
                               <div className="flex flex-wrap gap-2">
-                                {getMemberNames(subTeam.members).map((name) => (
+                                {getMemberNames(subTeam.tecnicos).map((name) => (
                                   <Badge key={name} variant="outline">
                                     {name}
                                   </Badge>
@@ -497,11 +597,18 @@ export default function TeamDetailPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleCloseDialog}>
+              <Button variant="outline" onClick={handleCloseDialog} disabled={submitting}>
                 Cancelar
               </Button>
-              <Button onClick={handleCreateOrUpdate}>
-                {editingSubTeam ? "Salvar Alterações" : "Criar Sub-time"}
+              <Button onClick={handleCreateOrUpdate} disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  editingSubTeam ? "Salvar Alterações" : "Criar Sub-time"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

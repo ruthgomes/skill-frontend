@@ -10,6 +10,7 @@ import type {
   CreateTecnicoRequest,
   UpdateTecnicoRequest,
   TecnicoQueryParams,
+  PaginatedResponse,
 } from '@/core/types'
 
 class TecnicosService {
@@ -29,11 +30,11 @@ class TecnicosService {
   }
 
   /**
-   * Lista técnicos com filtros
+   * Lista técnicos com filtros (retorna resposta paginada)
    */
-  async findAll(params?: TecnicoQueryParams): Promise<Tecnico[]> {
+  async findAll(params?: TecnicoQueryParams): Promise<PaginatedResponse<Tecnico>> {
     try {
-      const response = await apiClient.get<Tecnico[]>(
+      const response = await apiClient.get<PaginatedResponse<Tecnico>>(
         API_ENDPOINTS.TECNICOS,
         { params }
       )

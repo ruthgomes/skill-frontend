@@ -54,6 +54,7 @@ export default function TimesPage() {
     description: "",
     department: "",
     color: "#3b82f6",
+    supervisorId: "",
   })
 
   // Busca inicial de dados
@@ -99,6 +100,12 @@ export default function TimesPage() {
   }
 
   const handleCreateOrUpdate = async () => {
+    // Validação
+    if (!formData.name || !formData.supervisorId) {
+      showError('Preencha todos os campos obrigatórios (Nome e Supervisor)!');
+      return;
+    }
+
     try {
       setSubmitting(true)
       
@@ -110,7 +117,7 @@ export default function TimesPage() {
         console.log('✅ Time atualizado')
       } else {
         // Criar novo time
-        console.log('🔄 Criando novo time...')
+        console.log('🔄 Criando novo time...', formData)
         await teamsService.create(formData)
         success('Time criado com sucesso!')
         console.log('✅ Time criado')
@@ -134,6 +141,7 @@ export default function TimesPage() {
       description: team.description || "",
       department: team.department || "",
       color: team.color || "#3b82f6",
+      supervisorId: team.supervisorId || "",
     })
     setDialogOpen(true)
   }
@@ -166,6 +174,7 @@ export default function TimesPage() {
       description: "",
       department: "",
       color: "#3b82f6",
+      supervisorId: "",
     })
   }
 
@@ -343,6 +352,30 @@ export default function TimesPage() {
                   setFormData({ ...formData, department: e.target.value })
                 }
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="supervisor">Supervisor *</Label>
+              <select
+                id="supervisor"
+                className="w-full border border-input rounded-md p-2 bg-white h-10"
+                value={formData.supervisorId}
+                onChange={(e) =>
+                  setFormData({ ...formData, supervisorId: e.target.value })
+                }
+                required
+              >
+                <option value="">Selecione um supervisor</option>
+                {users
+                  .filter((u) => u.role === 'supervisor' || u.role === 'master')
+                  .map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Obrigatório selecionar um supervisor para o time
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Descrição</Label>

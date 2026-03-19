@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
 import { Badge } from "@/shared/components/ui/badge"
+import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 import {
   Dialog,
   DialogContent,
@@ -16,38 +17,62 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog"
 import { useState, useEffect } from "react"
-import { MACHINES, SKILLS, mockTeams, mockSubTeams, type Senioridade, type Area } from "@/shared/data"
-import { Settings, Plus, Edit, Trash2, Upload, X } from "lucide-react"
+import { Settings, Plus, Upload, X, Loader2, AlertCircle } from "lucide-react"
+import { 
+  tecnicosService, 
+  teamsService, 
+  subtimesService, 
+  machinesService, 
+  skillsService 
+} from "@/core/services"
+import { SkillLevel } from "@/core/types"
+import type { Team, SubTeam, Machine, Skill } from "@/core/types"
+
+type Senioridade = 'Auxiliar' | 'Junior' | 'Pleno' | 'Sênior' | 'Especialista' | 'Coordenador' | 'Supervisor'
+type Area = 'Produção' | 'Manutenção' | 'Qualidade' | 'Engenharia' | 'Logística' | 'Administrativa' | 'Outro'
 
 type ColaboradorForm = {
   name: string
-  workday: string
+  workday: string // Matrícula do colaborador
   cargo: string
   senioridade: Senioridade | ""
   area: Area | ""
-  shift: "1T" | "2T" | "3T" | ""
+  shift: "1T" | "2T" | "3T" | "ADM" | ""
   department: string
   teamId: string
   subtimeId: string
   gender: "M" | "F" | ""
+  joinDate: string
 }
 
 type MachineForm = {
   name: string
+  code: string
   teamId: string
 }
 
 type SkillForm = {
   name: string
+  category: string
   teamId: string
   subtimeId: string
+  machineId: string
 }
 
 export default function CadastroPage() {
   const { user } = useAuth()
   const { success, error: showError, warning } = useNotification()
   const router = useRouter()
-  const [machines, setMachines] = useState(MACHINES)
+  
+  // Estados de dados do backend
+  const [teams, setTeams] = useState<Team[]>([])
+  const [subtimes, setSubtimes] = useState<SubTeam[]>([])
+  const [machines, setMachines] = useState<Machine[]>([])
+  const [skills, setSkills] = useState<Skill[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
   const [selectedMachine, setSelectedMachine] = useState<string | null>(null)
   
@@ -61,70 +86,182 @@ export default function CadastroPage() {
     department: "",
     teamId: "",
     subtimeId: "",
-    gender: ""
+    gender: "",
+    joinDate: "",
   })
 
   const [machineForm, setMachineForm] = useState<MachineForm>({
     name: "",
+    code: "",
     teamId: ""
   })
 
   const [skillForm, setSkillForm] = useState<SkillForm>({
     name: "",
+    category: "",
     teamId: "",
-    subtimeId: ""
+    subtimeId: "",
+    machineId: "",
   })
 
-  const [availableSubtimes, setAvailableSubtimes] = useState<any[]>([])
+  const [availableSubtimes, setAvailableSubtimes] = useState<SubTeam[]>([])
+
+  // Buscar dados do backend
+  useEffect(() => {
+    fetchAllData()
+  }, [])
+
+  const fetchAllData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      console.log('🔄 Buscando dados de cadastro...')
+      
+      const [teamsData, subtimesData, machinesData, skillsData] = await Promise.all([
+        teamsService.findAll(),
+        subtimesService.findAll(),
+        machinesService.findAll(),
+        skillsService.findAll(),
+      ])
+      
+      console.log('✅ Dados carregados:', {
+        teams: teamsData.length,
+        subtimes: subtimesData.length,
+        machines: machinesData.length,
+        skills: skillsData.length,
+      })
+      
+      setTeams(teamsData)
+      setSubtimes(subtimesData)
+      setMachines(machinesData)
+      setSkills(skillsData)
+    } catch (err) {
+      console.error('❌ Erro ao buscar dados:', err)
+      setError(err instanceof Error ? err.message : 'Erro ao carregar dados')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (colaboradorForm.teamId) {
-      const subtimes = mockSubTeams.filter(st => st.parentTeamId === colaboradorForm.teamId)
-      setAvailableSubtimes(subtimes)
+      const filteredSubtimes = subtimes.filter(st => st.parentTeamId === colaboradorForm.teamId)
+      setAvailableSubtimes(filteredSubtimes)
     } else {
       setAvailableSubtimes([])
       setColaboradorForm(prev => ({ ...prev, subtimeId: "" }))
     }
-  }, [colaboradorForm.teamId])
+  }, [colaboradorForm.teamId, subtimes])
 
   if (!user || user.role !== "master") {
     router.replace("/login")
     return null
   }
 
-  const machineSkills = (machineCode: string) => {
-    return SKILLS.filter(skill => skill.category === machineCode)
+  // Loading state
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <p className="text-muted-foreground">Carregando dados de cadastro...</p>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="max-w-md w-full space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            <Button onClick={fetchAllData} variant="outline" className="w-full">
+              Tentar Novamente
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  const machineSkills = (machineId: string) => {
+    return skills.filter(skill => skill.machineId === machineId)
   }
 
   const selectedMachineData = machines.find(m => m.id === selectedMachine)
-  const selectedMachineSkills = selectedMachine ? machineSkills(selectedMachineData?.code || "") : []
+  const selectedMachineSkills = selectedMachine ? machineSkills(selectedMachine) : []
 
-  const handleAddMachine = () => {
-    if (!machineForm.name || !machineForm.teamId) {
+  const handleAddMachine = async () => {
+    if (!machineForm.name || !machineForm.code || !machineForm.teamId) {
       showError("Preencha todos os campos!")
       return
     }
 
-    // TODO: Integrar com backend
-    success(`Máquina ${machineForm.name} cadastrada com sucesso para o time!`)
-    setMachineForm({ name: "", teamId: "" })
+    try {
+      setSubmitting(true)
+      console.log('🔄 Criando máquina...', machineForm)
+      
+      await machinesService.create({
+        ...machineForm,
+        code: machineForm.code.toUpperCase(),
+      })
+      
+      success(`Máquina ${machineForm.name} cadastrada com sucesso!`)
+      console.log('✅ Máquina criada')
+      
+      await fetchAllData()
+      setMachineForm({ name: "", code: "", teamId: "" })
+    } catch (err) {
+      console.error('❌ Erro ao criar máquina:', err)
+      showError(err instanceof Error ? err.message : 'Erro ao cadastrar máquina')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleAddSkill = () => {
-    if (!skillForm.name || !skillForm.teamId || !skillForm.subtimeId) {
-      showError("Preencha todos os campos!")
+  const handleAddSkill = async () => {
+    if (!skillForm.name || !skillForm.category || !skillForm.teamId || !skillForm.subtimeId || !skillForm.machineId) {
+      showError("Preencha todos os campos obrigatórios!")
       return
     }
 
-    // TODO: Integrar com backend
-    success(`Habilidade ${skillForm.name} cadastrada com sucesso!`)
-    setSkillForm({ name: "", teamId: "", subtimeId: "" })
+    try {
+      setSubmitting(true)
+      console.log('🔄 Criando habilidade...', skillForm)
+      
+      await skillsService.create({
+        name: skillForm.name,
+        category: skillForm.category,
+        teamId: skillForm.teamId,
+        subtimeId: skillForm.subtimeId,
+        machineId: skillForm.machineId,
+        level: SkillLevel.INTERMEDIARIO, // Valor padrão do enum SkillLevel
+      })
+      
+      success(`Habilidade ${skillForm.name} cadastrada com sucesso!`)
+      console.log('✅ Habilidade criada')
+      
+      await fetchAllData()
+      setSkillForm({ name: "", category: "", teamId: "", subtimeId: "", machineId: "" })
+    } catch (err) {
+      console.error('❌ Erro ao criar habilidade:', err)
+      showError(err instanceof Error ? err.message : 'Erro ao cadastrar habilidade')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleAddColaborador = () => {
+  const handleAddColaborador = async () => {
     if (!colaboradorForm.name || !colaboradorForm.workday || !colaboradorForm.cargo || 
         !colaboradorForm.senioridade || !colaboradorForm.area || !colaboradorForm.shift || 
-        !colaboradorForm.department || !colaboradorForm.gender) {
+        !colaboradorForm.department || !colaboradorForm.gender || !colaboradorForm.joinDate) {
       showError("Preencha todos os campos obrigatórios!")
       return
     }
@@ -137,23 +274,52 @@ export default function CadastroPage() {
       }
     }
 
-    // TODO: Integrar com backend
-    success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
-    
-    // Reset form
-    setColaboradorForm({
-      name: "",
-      workday: "",
-      cargo: "",
-      senioridade: "",
-      area: "",
-      shift: "",
-      department: "",
-      teamId: "",
-      subtimeId: "",
-      gender: ""
-    })
-    setProfilePhoto(null)
+    try {
+      setSubmitting(true)
+      console.log('🔄 Criando técnico...', colaboradorForm)
+      
+      // Mapear dados do formulário para a estrutura esperada pelo backend
+      const tecnicoData = {
+        name: colaboradorForm.name,
+        teamId: colaboradorForm.teamId || undefined,
+        subtimeId: colaboradorForm.subtimeId || undefined,
+        joinDate: colaboradorForm.joinDate, // Data de admissão no formato ISO 8601
+        // Campos adicionais do backend
+        workday: colaboradorForm.workday,
+        cargo: colaboradorForm.cargo,
+        senioridade: colaboradorForm.senioridade as string,
+        area: colaboradorForm.area as string,
+        shift: colaboradorForm.shift,
+        department: colaboradorForm.department,
+        gender: colaboradorForm.gender,
+      }
+      
+      await tecnicosService.create(tecnicoData as any)
+      
+      success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
+      console.log('✅ Técnico criado')
+      
+      // Reset form
+      setColaboradorForm({
+        name: "",
+        workday: "",
+        cargo: "",
+        senioridade: "",
+        area: "",
+        shift: "",
+        department: "",
+        teamId: "",
+        subtimeId: "",
+        gender: "",
+        joinDate: "",
+      })
+      setProfilePhoto(null)
+    } catch (err) {
+      console.error('❌ Erro ao criar técnico:', err)
+      showError(err instanceof Error ? err.message : 'Erro ao cadastrar colaborador')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,15 +406,27 @@ export default function CadastroPage() {
                       className="border-primary/20"
                       value={colaboradorForm.name}
                       onChange={(e) => setColaboradorForm({ ...colaboradorForm, name: e.target.value })}
+                      disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Workday <span className="text-red-500">*</span></label>
+                    <label className="text-sm font-semibold">Data de Admissão <span className="text-red-500">*</span></label>
                     <Input 
-                      placeholder="Ex: WDC00001" 
+                      type="date"
+                      className="border-primary/20"
+                      value={colaboradorForm.joinDate}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, joinDate: e.target.value })}
+                      disabled={submitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Matrícula (Workday) <span className="text-red-500">*</span></label>
+                    <Input 
+                      placeholder="Ex: WDC00123, MAT12345" 
                       className="border-primary/20"
                       value={colaboradorForm.workday}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, workday: e.target.value })}
+                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, workday: e.target.value.toUpperCase() })}
+                      disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
@@ -302,9 +480,10 @@ export default function CadastroPage() {
                       onChange={(e) => setColaboradorForm({ ...colaboradorForm, shift: e.target.value as "1T" | "2T" | "3T" })}
                     >
                       <option value="">Selecione o turno</option>
-                      <option value="1T">1T</option>
-                      <option value="2T">2T</option>
-                      <option value="3T">3T</option>
+                      <option value="1T">1T - Primeiro Turno</option>
+                      <option value="2T">2T - Segundo Turno</option>
+                      <option value="3T">3T - Terceiro Turno</option>
+                      <option value="ADM">ADM - Administrativo</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -341,7 +520,7 @@ export default function CadastroPage() {
                           onChange={(e) => setColaboradorForm({ ...colaboradorForm, teamId: e.target.value })}
                         >
                           <option value="">Selecione um time</option>
-                          {mockTeams.filter(t => t.status === "ativo").map((team) => (
+                          {teams.filter(t => t.status).map((team) => (
                             <option key={team.id} value={team.id}>
                               {team.name}
                             </option>
@@ -382,8 +561,16 @@ export default function CadastroPage() {
                 <Button 
                   className="bg-primary hover:bg-primary/90 w-full" 
                   onClick={handleAddColaborador}
+                  disabled={submitting}
                 >
-                  Cadastrar Colaborador
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Cadastrando...
+                    </>
+                  ) : (
+                    "Cadastrar Colaborador"
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -399,7 +586,7 @@ export default function CadastroPage() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold">Nome da Máquina <span className="text-red-500">*</span></label>
                     <Input
@@ -407,6 +594,17 @@ export default function CadastroPage() {
                       onChange={(e) => setMachineForm({ ...machineForm, name: e.target.value })}
                       placeholder="Ex: LASER"
                       className="border-primary/20"
+                      disabled={submitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Código <span className="text-red-500">*</span></label>
+                    <Input
+                      value={machineForm.code}
+                      onChange={(e) => setMachineForm({ ...machineForm, code: e.target.value })}
+                      placeholder="Ex: LSR-01"
+                      className="border-primary/20"
+                      disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
@@ -415,9 +613,10 @@ export default function CadastroPage() {
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={machineForm.teamId}
                       onChange={(e) => setMachineForm({ ...machineForm, teamId: e.target.value })}
+                      disabled={submitting}
                     >
                       <option value="">Selecione um time</option>
-                      {mockTeams.filter(t => t.status === "ativo").map((team) => (
+                      {teams.filter(t => t.status).map((team) => (
                         <option key={team.id} value={team.id}>
                           {team.name}
                         </option>
@@ -425,9 +624,18 @@ export default function CadastroPage() {
                     </select>
                   </div>
                 </div>
-                <Button className="bg-primary hover:bg-primary/90 w-full" onClick={handleAddMachine}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Máquina
+                <Button className="bg-primary hover:bg-primary/90 w-full" onClick={handleAddMachine} disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adicionando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Adicionar Máquina
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -444,8 +652,8 @@ export default function CadastroPage() {
                 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {machines.map((machine) => {
-                    const skillCount = machineSkills(machine.code).length
-                    const team = mockTeams.find(t => t.id === machine.teamId)
+                    const skillCount = machineSkills(machine.id).length
+                    const team = teams.find(t => t.id === machine.teamId)
                     return (
                       <Card
                         key={machine.id}
@@ -490,8 +698,37 @@ export default function CadastroPage() {
                       onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })}
                       placeholder="Ex: Manutenção Preventiva"
                       className="border-primary/20"
+                      disabled={submitting}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Categoria <span className="text-red-500">*</span></label>
+                    <Input
+                      value={skillForm.category}
+                      onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })}
+                      placeholder="Ex: Técnica"
+                      className="border-primary/20"
+                      disabled={submitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold">Máquina <span className="text-red-500">*</span></label>
+                    <select 
+                      className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+                      value={skillForm.machineId}
+                      onChange={(e) => setSkillForm({ ...skillForm, machineId: e.target.value })}
+                      disabled={submitting}
+                    >
+                      <option value="">Selecione uma máquina</option>
+                      {machines.filter(m => m.status).map((machine) => (
+                        <option key={machine.id} value={machine.id}>
+                          {machine.name} ({machine.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold">Time <span className="text-red-500">*</span></label>
                     <select 
@@ -500,9 +737,10 @@ export default function CadastroPage() {
                       onChange={(e) => {
                         setSkillForm({ ...skillForm, teamId: e.target.value, subtimeId: "" })
                       }}
+                      disabled={submitting}
                     >
                       <option value="">Selecione um time</option>
-                      {mockTeams.filter(t => t.status === "ativo").map((team) => (
+                      {teams.filter(t => t.status).map((team) => (
                         <option key={team.id} value={team.id}>
                           {team.name}
                         </option>
@@ -515,10 +753,10 @@ export default function CadastroPage() {
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={skillForm.subtimeId}
                       onChange={(e) => setSkillForm({ ...skillForm, subtimeId: e.target.value })}
-                      disabled={!skillForm.teamId}
+                      disabled={!skillForm.teamId || submitting}
                     >
                       <option value="">Selecione um sub-time</option>
-                      {mockSubTeams
+                      {subtimes
                         .filter(st => st.parentTeamId === skillForm.teamId)
                         .map((subtime) => (
                           <option key={subtime.id} value={subtime.id}>
@@ -528,9 +766,18 @@ export default function CadastroPage() {
                     </select>
                   </div>
                 </div>
-                <Button className="bg-primary hover:bg-primary/90 w-full" onClick={handleAddSkill}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Habilidade
+                <Button className="bg-primary hover:bg-primary/90 w-full" onClick={handleAddSkill} disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adicionando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Adicionar Habilidade
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>

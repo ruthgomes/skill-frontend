@@ -14,6 +14,8 @@ import type {
   TeamComparison,
   QuarterlyReport,
   SkillGapsResponse,
+  ShiftSkillComparison,
+  ShiftMachineComparison,
 } from '@/core/types'
 
 class AnalyticsService {
@@ -78,12 +80,13 @@ class AnalyticsService {
   async getTopPerformers(
     limit: number = 10,
     quarter?: number,
-    year?: number
+    year?: number,
+    senioridade?: string
   ): Promise<TopPerformer[]> {
     try {
       const response = await apiClient.get<TopPerformer[]>(
         `${API_ENDPOINTS.ANALYTICS}/top-performers`,
-        { params: { limit, quarter, year } }
+        { params: { limit, quarter, year, senioridade } }
       )
       return response.data
     } catch (error: any) {
@@ -149,6 +152,44 @@ class AnalyticsService {
       const response = await apiClient.get<SkillGapsResponse>(
         `${API_ENDPOINTS.ANALYTICS}/skill-gaps`,
         { params: { teamId } }
+      )
+      return response.data
+    } catch (error: any) {
+      throw this.handleError(error)
+    }
+  }
+
+  /**
+   * Busca comparação de skills por turno
+   */
+  async getSkillsByShift(
+    teamId?: string,
+    quarter?: number,
+    year?: number
+  ): Promise<ShiftSkillComparison[]> {
+    try {
+      const response = await apiClient.get<ShiftSkillComparison[]>(
+        `${API_ENDPOINTS.ANALYTICS}/skills-by-shift`,
+        { params: { teamId, quarter, year } }
+      )
+      return response.data
+    } catch (error: any) {
+      throw this.handleError(error)
+    }
+  }
+
+  /**
+   * Busca comparação de máquinas por turno
+   */
+  async getMachinesByShift(
+    teamId?: string,
+    quarter?: number,
+    year?: number
+  ): Promise<ShiftMachineComparison[]> {
+    try {
+      const response = await apiClient.get<ShiftMachineComparison[]>(
+        `${API_ENDPOINTS.ANALYTICS}/machines-by-shift`,
+        { params: { teamId, quarter, year } }
       )
       return response.data
     } catch (error: any) {

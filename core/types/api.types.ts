@@ -102,6 +102,15 @@ export interface Tecnico {
   birthDate?: string | null
   notes?: string | null
   status: boolean
+  // Campos do backend
+  workday?: string // Jornada de trabalho
+  cargo?: string // Cargo específico
+  senioridade?: 'Auxiliar' | 'Junior' | 'Pleno' | 'Sênior' | 'Especialista' | 'Coordenador' | 'Supervisor'
+  area?: string // Área de atuação
+  shift?: string // Turno
+  department?: string // Departamento
+  gender?: 'M' | 'F' | 'O' // Gênero
+  joinDate?: string // Data de admissão (alternativa a admissionDate)
   createdAt: string
   updatedAt: string
   team?: Team
@@ -111,15 +120,21 @@ export interface Tecnico {
 
 export interface CreateTecnicoRequest {
   name: string
-  employeeNumber: string
-  position: string
-  teamId: string
-  subtimeId: string
+  teamId?: string
+  subtimeId?: string
   email?: string
   phone?: string
-  admissionDate: string
+  joinDate: string // Data de admissão (formato ISO 8601)
   birthDate?: string
   notes?: string
+  // Campos do backend
+  workday: string // Matrícula do colaborador (ex: "WDC00001", "MAT12345")
+  cargo?: string
+  senioridade?: 'Auxiliar' | 'Junior' | 'Pleno' | 'Sênior' | 'Especialista' | 'Coordenador' | 'Supervisor'
+  area?: string
+  shift?: '1T' | '2T' | '3T' | 'ADM'
+  department?: string
+  gender?: 'M' | 'F' | 'O'
 }
 
 export interface UpdateTecnicoRequest {
@@ -344,8 +359,8 @@ export enum EvaluationStatus {
 export enum EvaluationType {
   QUARTERLY = 'quarterly',
   ANNUAL = 'annual',
-  PROBATION = 'probation',
-  SPECIAL = 'special',
+  PROBATIONARY = 'probationary',
+  PERFORMANCE = 'performance',
 }
 
 export interface EvaluationCriterion {
@@ -364,6 +379,7 @@ export interface Evaluation {
   type: EvaluationType
   quarter: number
   year: number
+  evaluationDate: string // ISO 8601 date string
   tecnicoId: string
   evaluatorId: string
   approverId?: string | null
@@ -396,6 +412,7 @@ export interface CreateEvaluationRequest {
   type: EvaluationType
   quarter: number
   year: number
+  evaluationDate: string // ISO 8601 date string
   tecnicoId: string
   evaluatorId: string
   criteria: CriterionInput[]
@@ -540,6 +557,40 @@ export interface SkillGap {
 export interface SkillGapsResponse {
   totalGaps: number
   gaps: SkillGap[]
+}
+
+// ============================================
+// DASHBOARDS ANALÍTICOS
+// ============================================
+
+export interface ShiftSkillComparison {
+  skillId: string
+  skillName: string
+  skillCategory: string
+  shifts: {
+    '1T': number
+    '2T': number
+    '3T': number
+    'ADM': number
+  }
+  overallAverage: number
+  totalTecnicos: number
+}
+
+export interface ShiftMachineComparison {
+  machineId: string
+  machineCode: string
+  machineName: string
+  shifts: {
+    '1T': number
+    '2T': number
+    '3T': number
+    'ADM': number
+  }
+  overallAverage: number
+  totalSkills: number
+  totalTecnicos: number
+  bestShift: '1T' | '2T' | '3T' | 'ADM'
 }
 
 // ============================================
