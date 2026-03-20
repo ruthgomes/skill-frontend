@@ -53,6 +53,9 @@ export interface User {
   updatedAt: string
   // Senha temporária retornada apenas na criação (se não fornecida)
   temporaryPassword?: string
+  // Sistema Multi-Supervisor: vincula User a Tecnico (se for supervisor)
+  tecnicoId?: string | null
+  tecnico?: Tecnico | null
 }
 
 export interface CreateUserRequest {
@@ -116,6 +119,9 @@ export interface Tecnico {
   team?: Team
   subtime?: SubTeam
   tecnicoSkills?: TecnicoSkill[]
+  // Sistema Multi-Supervisor: indica se técnico tem conta de usuário
+  hasUserAccount?: boolean
+  user?: User
 }
 
 export interface CreateTecnicoRequest {
@@ -135,6 +141,8 @@ export interface CreateTecnicoRequest {
   shift?: '1T' | '2T' | '3T' | 'ADM'
   department?: string
   gender?: 'M' | 'F' | 'O'
+  // Sistema Multi-Supervisor: credenciais obrigatórias se senioridade = Supervisor
+  password?: string
 }
 
 export interface UpdateTecnicoRequest {

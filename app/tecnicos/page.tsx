@@ -14,7 +14,7 @@ import { useState, useEffect } from "react"
 import { Search, Loader2, AlertCircle } from "lucide-react"
 
 export default function TecnicosPage() {
-  const { user } = useAuth()
+  const { user, isSupervisor, isAdmin } = useAuth()
   const { error: showError } = useNotification()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
@@ -77,8 +77,15 @@ export default function TecnicosPage() {
     <AppLayout>
       <div className="space-y-6 p-8">
         <div>
-          <h1 className="text-4xl font-bold text-primary">Colaboradores</h1>
-          <p className="text-muted-foreground mt-2">Gerenciamento de colaboradores do sistema</p>
+          <h1 className="text-4xl font-bold text-primary">
+            {isSupervisor ? "Meus Colaboradores" : "Colaboradores"}
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            {isSupervisor 
+              ? "Gerenciamento dos colaboradores dos seus times" 
+              : "Gerenciamento de colaboradores do sistema"
+            }
+          </p>
         </div>
 
         {/* Error State */}
@@ -153,9 +160,16 @@ export default function TecnicosPage() {
                         <CardTitle className="text-lg">{op.name}</CardTitle>
                         <p className="text-sm text-muted-foreground mt-1">{op.workday || 'N/A'}</p>
                       </div>
-                      <Badge variant={op.status ? "default" : "secondary"}>
-                        {op.status ? "Ativo" : "Inativo"}
-                      </Badge>
+                      <div className="flex gap-2 flex-wrap justify-end">
+                        <Badge variant={op.status ? "default" : "secondary"}>
+                          {op.status ? "Ativo" : "Inativo"}
+                        </Badge>
+                        {op.hasUserAccount && (
+                          <Badge className="bg-purple-600 text-white hover:bg-purple-700">
+                            👤 Supervisor
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">

@@ -34,8 +34,8 @@ export enum EvaluationStatus {
 export enum EvaluationType {
   QUARTERLY = 'quarterly',
   ANNUAL = 'annual',
-  PROBATION = 'probation',
-  SPECIAL = 'special',
+  PROBATIONARY = 'probationary',
+  PERFORMANCE = 'performance',
 }
 
 @Entity('evaluations')

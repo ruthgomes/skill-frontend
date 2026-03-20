@@ -43,6 +43,9 @@ type ColaboradorForm = {
   subtimeId: string
   gender: "M" | "F" | ""
   joinDate: string
+  // Sistema Multi-Supervisor: credenciais obrigatórias se senioridade = Supervisor
+  email: string
+  password: string
 }
 
 type MachineForm = {
@@ -88,6 +91,8 @@ export default function CadastroPage() {
     subtimeId: "",
     gender: "",
     joinDate: "",
+    email: "",
+    password: "",
   })
 
   const [machineForm, setMachineForm] = useState<MachineForm>({
@@ -266,6 +271,18 @@ export default function CadastroPage() {
       return
     }
 
+    // Se for Supervisor, email e password são obrigatórios
+    if (colaboradorForm.senioridade === "Supervisor") {
+      if (!colaboradorForm.email || !colaboradorForm.password) {
+        showError("E-mail e senha são obrigatórios para Supervisores!")
+        return
+      }
+      if (colaboradorForm.password.length < 8) {
+        showError("Senha deve ter no mínimo 8 caracteres!")
+        return
+      }
+    }
+
     // Se não for Supervisor, precisa ter time e sub-time
     if (colaboradorForm.senioridade !== "Supervisor") {
       if (!colaboradorForm.teamId || !colaboradorForm.subtimeId) {
@@ -279,7 +296,7 @@ export default function CadastroPage() {
       console.log('🔄 Criando técnico...', colaboradorForm)
       
       // Mapear dados do formulário para a estrutura esperada pelo backend
-      const tecnicoData = {
+      const tecnicoData: any = {
         name: colaboradorForm.name,
         teamId: colaboradorForm.teamId || undefined,
         subtimeId: colaboradorForm.subtimeId || undefined,
@@ -293,8 +310,14 @@ export default function CadastroPage() {
         department: colaboradorForm.department,
         gender: colaboradorForm.gender,
       }
+
+      // Adicionar credenciais se for Supervisor
+      if (colaboradorForm.senioridade === "Supervisor") {
+        tecnicoData.email = colaboradorForm.email
+        tecnicoData.password = colaboradorForm.password
+      }
       
-      await tecnicosService.create(tecnicoData as any)
+      await tecnicosService.create(tecnicoData)
       
       success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
       console.log('✅ Técnico criado')
@@ -312,6 +335,8 @@ export default function CadastroPage() {
         subtimeId: "",
         gender: "",
         joinDate: "",
+        email: "",
+        password: "",
       })
       setProfilePhoto(null)
     } catch (err) {
@@ -507,6 +532,47 @@ export default function CadastroPage() {
                       <option value="F">Feminino</option>
                     </select>
                   </div>
+                  
+                  {/* Campos condicionais para Supervisor */}
+                  {isSupervisor && (
+                    <>
+                      <div className="col-span-2">
+                        <Alert className="bg-blue-50 border-blue-200">
+                          <AlertCircle className="h-4 w-4 text-blue-600" />
+                          <AlertDescription className="text-blue-800">
+                            🔑 Ao cadastrar um Supervisor, uma conta de usuário será criada automaticamente com as credenciais informadas abaixo.
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold">
+                          E-mail do Supervisor <span className="text-red-500">*</span>
+                        </label>
+                        <Input 
+                          type="email"
+                          placeholder="supervisor@empresa.com" 
+                          className="border-primary/20"
+                          value={colaboradorForm.email}
+                          onChange={(e) => setColaboradorForm({ ...colaboradorForm, email: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold">
+                          Senha <span className="text-red-500">*</span>
+                        </label>
+                        <Input 
+                          type="password"
+                          placeholder="Mínimo 8 caracteres" 
+                          className="border-primary/20"
+                          value={colaboradorForm.password}
+                          onChange={(e) => setColaboradorForm({ ...colaboradorForm, password: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Senha deve ter no mínimo 8 caracteres
+                        </p>
+                      </div>
+                    </>
+                  )}
                   
                   {!isSupervisor && (
                     <>

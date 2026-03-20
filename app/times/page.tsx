@@ -33,9 +33,10 @@ import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 import { teamsService, subtimesService, usersService } from "@/core/services"
 import type { Team, SubTeam, User } from "@/core/types"
 import Link from "next/link"
-import { useNotification } from "@/core/contexts"
+import { useAuth, useNotification } from "@/core/contexts"
 
 export default function TimesPage() {
+  const { isSupervisor, isAdmin } = useAuth()
   const { success, error: showError } = useNotification()
   
   // Estados para dados do backend
@@ -223,9 +224,14 @@ export default function TimesPage() {
       <div className="space-y-6 p-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gerenciamento de Times</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {isSupervisor ? "Meus Times" : "Gerenciamento de Times"}
+            </h1>
             <p className="text-muted-foreground mt-1">
-              Gerencie todos os times e sub-times da engenharia
+              {isSupervisor 
+                ? "Gerencie seus times e sub-times" 
+                : "Gerencie todos os times e sub-times da engenharia"
+              }
             </p>
           </div>
           <Button onClick={() => setDialogOpen(true)} size="lg">

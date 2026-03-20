@@ -3,6 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useState, useCallback, useEffect } from "react"
 import { generateId } from "./id-generator"
+import type { Tecnico } from "@/core/types/api.types"
 
 export type UserRole = "master" | "tecnico"
 
@@ -12,11 +13,17 @@ export interface AuthUser {
   name: string
   role: UserRole
   workday?: string
+  // Sistema Multi-Supervisor: vincula User a Tecnico (se for supervisor)
+  tecnicoId?: string | null
+  tecnico?: Tecnico | null
 }
 
 interface AuthContextType {
   user: AuthUser | null
   isLoading: boolean
+  isSupervisor: boolean  // True se user.tecnicoId existe
+  isAdmin: boolean       // True se user.tecnicoId === null (admin vê tudo)
+  supervisorId: string | null  // ID do técnico vinculado (se supervisor)
   login: (email: string, password: string) => Promise<void>
   logout: () => void
 }
@@ -28,17 +35,46 @@ const AUTH_STORAGE_KEY = "skillfix_auth_user"
 
 // Usuários mockados para demonstração
 // TODO: Remover quando integrar com backend real
-const mockUsers: Record<string, { name: string; role: UserRole; workday?: string; password: string }> = {
+const mockUsers: Record<string, { 
+  name: string
+  role: UserRole
+  workday?: string
+  password: string
+  tecnicoId?: string | null
+  tecnico?: Tecnico | null
+}> = {
   "master@example.com": { 
     name: "Maria Silva", 
     role: "master",
-    password: "Demo@2024!" // Senha temporária para demo
+    password: "Demo@2024!",
+    tecnicoId: null,  // Admin não tem tecnicoId
+    tecnico: null
   },
+  // Exemplo de Supervisor
+  "supervisor@example.com": {
+    name: "Carlos Supervisor",
+    role: "master",
+    password: "Supervisor@2024!",
+    tecnicoId: "supervisor-tecnico-123",  // Supervisor tem tecnicoId
+    tecnico: {
+      id: "supervisor-tecnico-123",
+      name: "Carlos Supervisor",
+      senioridade: "Supervisor",
+      area: "Produção",
+      department: "Gestão de Produção",
+      hasUserAccount: true,
+    } as Tecnico
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Calcular flags baseadas no user
+  const isSupervisor = !!user?.tecnicoId
+  const isAdmin = !user?.tecnicoId && !!user  // Logado mas sem tecnicoId = Admin
+  const supervisorId = user?.tecnicoId || null
 
   // Carregar usuário do localStorage na inicialização
   useEffect(() => {
@@ -87,6 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: userData.name,
         role: userData.role,
         workday: userData.workday,
+        tecnicoId: userData.tecnicoId,
+        tecnico: userData.tecnico,
       }
 
       setUser(authenticatedUser)
@@ -103,7 +141,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(AUTH_STORAGE_KEY)
   }, [])
 
-  return <AuthContext.Provider value={{ user, isLoading, login, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        isLoading, 
+        isSupervisor, 
+        isAdmin, 
+        supervisorId,
+        login, 
+        logout 
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

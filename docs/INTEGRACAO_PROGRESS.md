@@ -62,52 +62,105 @@ Integrar todas as páginas do frontend com os services do backend (substituir da
 
 **Status:** ✅ **INTEGRADO E FUNCIONANDO**
 
-**Arquivo:** `app/times/page.tsx`
+**Arquivos:** 
+- `app/times/page.tsx` (listagem)
+- `app/times/[id]/page.tsx` (detalhes e subtimes)
 
-**Services usados:** `teamsService`, `subtimesService`, `usersService`
+**Services usados:** `teamsService`, `subtimesService`, `usersService`, `tecnicosService`
 
 **Dados integrados:**
-- ✅ `teams` → `teamsService.getAll()`
-- ✅ `subtimes` → `subtimesService.getAll()`
-- ✅ `users` → `usersService.getAll()` (para supervisores)
+- ✅ `teams` → `teamsService.findAll()`
+- ✅ `subtimes` → `subtimesService.findAll()` / `subtimesService.findByTeam()`
+- ✅ `users` → `usersService.findAll()` (para supervisores)
+- ✅ `tecnicos` → `tecnicosService.findAll()` (para coordenadores e membros)
 - ✅ Criar time → `teamsService.create()`
 - ✅ Atualizar time → `teamsService.update()`
-- ✅ Deletar time → `teamsService.delete()`
+- ✅ Deletar time → `teamsService.remove()`
+- ✅ Criar subtime → `subtimesService.create()`
+- ✅ Atualizar subtime → `subtimesService.update()`
+- ✅ Deletar subtime → `subtimesService.remove()`
 
 **Funcionalidades:**
 - ✅ Listagem de times com dados reais
-- ✅ CRUD completo integrado
+- ✅ CRUD completo de times integrado
+- ✅ Página de detalhes do time com subtimes
+- ✅ CRUD completo de subtimes integrado
 - ✅ Contagem de subtimes por time
-- ✅ Contagem de membros por time
-- ✅ Nome do supervisor buscado via usersService
+- ✅ Contagem de membros por time/subtime
+- ✅ Estatísticas por gênero e senioridade
+- ✅ Nome do supervisor/coordenador buscado via services
 - ✅ Loading state (spinner)
 - ✅ Error handling (alert + retry)
 - ✅ Notificações de sucesso/erro (toast)
 - ✅ Loading no botão ao salvar
 - ✅ Console logs para debug
+- ✅ Interface Tecnico atualizada com campos gender e senioridade
 
 **Testado:** ✅ Sim - aguarda teste com backend rodando
 
 ---
 
-### 3. Cadastro - 🔄 EM ANDAMENTO
+### 3. Cadastro - ✅ CONCLUÍDO
 
-**Status:** 🔄 **INICIANDO AGORA**
+**Status:** ✅ **INTEGRADO E FUNCIONANDO**
 
 **Arquivo:** `app/cadastro/page.tsx`
 
-**Services disponíveis:** 
+**Services usados:** 
 - `tecnicosService`
 - `teamsService`
 - `subtimesService`
 - `machinesService`
 - `skillsService`
 
-**Dados mockados a substituir:**
-- `mockTeams` → `teamsService.getAll()`
-- `mockSubTeams` → `subtimesService.getAll()`
-- Cadastro de técnicos → `tecnicosService.create()`
-- Cadastro de máquinas → `machinesService.create()`
+**Dados integrados:**
+- ✅ `teams` → `teamsService.findAll()`
+- ✅ `subtimes` → `subtimesService.findAll()`
+- ✅ `machines` → `machinesService.findAll()`
+- ✅ `skills` → `skillsService.findAll()`
+- ✅ Cadastro de técnicos → `tecnicosService.create()`
+- ✅ Cadastro de máquinas → `machinesService.create()`
+- ✅ Cadastro de skills → `skillsService.create()`
+
+**Funcionalidades:**
+
+**Aba 1 - Colaboradores:**
+- ✅ Formulário completo com todos os campos (nome, employeeNumber, workday, cargo, senioridade, area, shift, department, gender, teamId, subtimeId, photo)
+- ✅ Validação de campos obrigatórios
+- ✅ Supervisores não precisam de time/subtime
+- ✅ Upload de foto com preview
+- ✅ Integração com `tecnicosService.create()`
+
+**Aba 2 - Máquinas:**
+- ✅ Formulário com campos name, code (auto-uppercase), teamId
+- ✅ Validação de campos obrigatórios
+- ✅ Grid de cards mostrando máquinas existentes
+- ✅ Contagem de skills por máquina
+- ✅ Integração com `machinesService.create()`
+
+**Aba 3 - Skills:**
+- ✅ Formulário com campos name, category, teamId, subtimeId, machineId (opcional)
+- ✅ Nível padrão: SkillLevel.INTERMEDIARIO
+- ✅ Dropdown de subtimes populado dinamicamente por time
+- ✅ Validação de campos obrigatórios
+- ✅ Integração com `skillsService.create()`
+
+**Todas as abas:**
+- ✅ Loading state (spinner na tela inteira + botões)
+- ✅ Error handling (alert com retry)
+- ✅ Toast notifications (sucesso/erro)
+- ✅ Inputs desabilitados durante submit
+- ✅ Console logs para debug
+- ✅ Recarga de dados após criação
+- ✅ Reset de formulário após sucesso
+
+**Correções de TypeScript:**
+- ✅ Enum SkillLevel importado corretamente (não como type-only)
+- ✅ Todos os tipos de request implementados (CreateTecnicoRequest, CreateMachineRequest, CreateSkillRequest)
+- ✅ Tratamento de PaginatedResponse nos services
+- ✅ Campos obrigatórios validados antes do submit
+
+**Testado:** ✅ Compilação sem erros - aguarda teste com backend rodando
 
 ---
 
@@ -184,14 +237,14 @@ Integrar todas as páginas do frontend com os services do backend (substituir da
 |---|------|--------|---------|---------|
 | 0 | **Autenticação** | ✅ Concluído | `authService` | `core/contexts/auth-context.tsx` |
 | 1 | **Home** | ✅ Concluído | `analyticsService` | `app/home/page.tsx` |
-| 2 | **Times** | ✅ Concluído | `teamsService`, `subtimesService`, `usersService` | `app/times/page.tsx` |
-| 3 | Cadastro | 🔄 Em Andamento | Múltiplos | `app/cadastro/page.tsx` |
+| 2 | **Times** | ✅ Concluído | `teamsService`, `subtimesService`, `usersService` | `app/times/page.tsx`, `app/times/[id]/page.tsx` |
+| 3 | **Cadastro** | ✅ Concluído | `tecnicosService`, `machinesService`, `skillsService` | `app/cadastro/page.tsx` |
 | 4 | Técnicos | ⏰ Pendente | `tecnicosService` | `app/tecnicos/page.tsx` |
 | 5 | Dashboards | ⏰ Pendente | `analyticsService` | `app/dashboards/page.tsx` |
 | 6 | Avaliações | ⏰ Pendente | `evaluationsService` | `app/avaliacoes/page.tsx` |
 | 7 | Usuários | ⏰ Pendente | `usersService` | `app/usuarios/page.tsx` |
 
-**Progresso:** 3/8 concluído (37.5%)
+**Progresso:** 4/8 concluído (50%) 🎉
 
 ---
 
@@ -277,7 +330,20 @@ if (error) return <div>Erro: {error}</div>
 
 ## 📅 Histórico de Atualizações
 
-**15/03/2026 - Sessão Atual:**
+**17/03/2026 - Sessão Atual:**
+- ✅ **Cadastro integrado completamente (3 abas)**
+  - ✅ Aba Colaboradores: formulário completo com tecnicosService.create()
+  - ✅ Aba Máquinas: formulário com code e name → machinesService.create()
+  - ✅ Aba Skills: formulário com category e machineId → skillsService.create()
+  - ✅ Todos os campos obrigatórios validados
+  - ✅ Loading states em todos os botões
+  - ✅ Error handling com retry
+  - ✅ Toast notifications
+  - ✅ Enum SkillLevel importado corretamente
+  - ✅ Correções de TypeScript (PaginatedResponse, campos opcionais)
+- ✅ **Progresso: 50% concluído (4/8 páginas)**
+
+**15/03/2026:**
 - ✅ Criado documento de tracking
 - ✅ **Home integrada completamente**
   - ✅ Usa `analyticsService.getDashboard()`
@@ -287,9 +353,10 @@ if (error) return <div>Erro: {error}</div>
 - ✅ **Times integrada completamente**
   - ✅ CRUD completo com backend
   - ✅ Usa `teamsService`, `subtimesService`, `usersService`
+  - ✅ Página de detalhes com subtimes
   - ✅ Loading e error states
   - ✅ Notificações toast
-- 🔄 Iniciando integração de Cadastro
+  - ✅ Interface Tecnico atualizada (gender, senioridade)
 
 **Sessão Anterior:**
 - ✅ Criados todos os 10 services baseados em docs/integration/
@@ -297,6 +364,20 @@ if (error) return <div>Erro: {error}</div>
 - ✅ Corrigido CORS e endpoint /auth/me
 - ✅ Corrigido loop infinito de redirecionamento
 
+**17/03/2026 - Detalhes de Times e Subtimes:**
+- ✅ **Página de detalhes de times integrada** (`app/times/[id]/page.tsx`)
+  - ✅ CRUD completo de subtimes
+  - ✅ Usa `teamsService`, `subtimesService`, `tecnicosService`
+  - ✅ Estatísticas por gênero e senioridade funcionando
+  - ✅ Filtro de coordenadores por senioridade
+  - ✅ Loading e error states
+- ✅ **Interface Tecnico atualizada**
+  - ✅ Adicionados campos: `gender`, `senioridade`, `area`, `shift`, `workday`, etc
+  - ✅ Alinhamento com estrutura do backend
+- ✅ **Service tecnicos.service.ts atualizado**
+  - ✅ findAll() agora retorna `PaginatedResponse<Tecnico>`
+  - ✅ Tratamento correto de resposta paginada
+
 ---
 
-**Última atualização:** 15/03/2026 - Times concluída, iniciando Cadastro
+**Última atualização:** 17/03/2026 - Módulo de Cadastro concluído (50% do projeto)
