@@ -49,6 +49,7 @@ import type { SubTeam, Team, Tecnico } from "@/core/types"
 import teamsService from "@/core/services/teams.service"
 import subtimesService from "@/core/services/subtimes.service"
 import tecnicosService from "@/core/services/tecnicos.service"
+import { fetchAllPaginated } from "@/core/utils/pagination.utils"
 import Link from "next/link"
 
 type FormData = {
@@ -86,16 +87,11 @@ export default function TeamDetailPage() {
         setError(null)
         console.log('🔄 Buscando time e subtimes...')
         
-        const [teamData, subtimesData, tecnicosResponse] = await Promise.all([
+        const [teamData, subtimesData, tecnicosData] = await Promise.all([
           teamsService.findOne(teamId),
           subtimesService.findByTeam(teamId),
-          tecnicosService.findAll(),
+          fetchAllPaginated((page, limit) => tecnicosService.findAll({ page, limit })),
         ])
-        
-        // Extrair array de técnicos da resposta paginada
-        const tecnicosData = Array.isArray(tecnicosResponse) 
-          ? tecnicosResponse 
-          : tecnicosResponse.data || []
         
         console.log('✅ Dados carregados:', { team: teamData, subtimes: subtimesData, tecnicos: tecnicosData })
         setTeam(teamData)

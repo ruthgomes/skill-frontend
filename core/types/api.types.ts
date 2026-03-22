@@ -101,6 +101,7 @@ export interface Tecnico {
   email?: string | null
   phone?: string | null
   photoUrl?: string | null
+  photo?: string | null // Caminho da foto no backend (ex: "uploads/photos/uuid.jpg")
   admissionDate: string
   birthDate?: string | null
   notes?: string | null

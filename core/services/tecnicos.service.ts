@@ -30,6 +30,40 @@ class TecnicosService {
   }
 
   /**
+   * Cria novo técnico com foto em um único request
+   */
+  async createWithPhoto(data: CreateTecnicoRequest, photoFile?: File): Promise<Tecnico> {
+    try {
+      const formData = new FormData()
+      
+      // Adicionar foto se fornecida
+      if (photoFile) {
+        formData.append('photo', photoFile)
+      }
+      
+      // Adicionar todos os campos do técnico
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          formData.append(key, String(value))
+        }
+      })
+      
+      const response = await apiClient.post<Tecnico>(
+        `${API_ENDPOINTS.TECNICOS}/with-photo`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      )
+      return response.data
+    } catch (error: any) {
+      throw this.handleError(error)
+    }
+  }
+
+  /**
    * Lista técnicos com filtros (retorna resposta paginada)
    */
   async findAll(params?: TecnicoQueryParams): Promise<PaginatedResponse<Tecnico>> {

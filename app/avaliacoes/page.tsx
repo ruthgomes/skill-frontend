@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuth, useNotification } from "@/core/contexts"
+import { fetchAllPaginated } from "@/core/utils/pagination.utils"
 import { AppLayout } from "@/shared/components/layout"
 import { useState, useMemo, useEffect } from "react"
 import evaluationsService from "@/core/services/evaluations.service"
@@ -58,12 +59,10 @@ export default function AvaliacoesPage() {
         setError(null)
         
         // Fetch tecnicos and skills in parallel
-        const [tecnicosResponse, skillsData] = await Promise.all([
-          tecnicosService.findAll(),
+        const [tecnicosData, skillsData] = await Promise.all([
+          fetchAllPaginated((page, limit) => tecnicosService.findAll({ page, limit })),
           skillsService.findAll(),
         ])
-        
-        const tecnicosData = tecnicosResponse.data
         
         console.log(`✅ ${tecnicosData.length} técnicos carregados`)
         console.log(`✅ ${skillsData.length} skills carregadas`)

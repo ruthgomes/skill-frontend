@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 import { Button } from "@/shared/components/ui/button"
 import { useState, useEffect } from "react"
 import { Search, Loader2, AlertCircle } from "lucide-react"
+import { fetchAllPaginated } from "@/core/utils/pagination.utils"
 
 export default function TecnicosPage() {
   const { user, isSupervisor, isAdmin } = useAuth()
@@ -37,12 +38,13 @@ export default function TecnicosPage() {
       setError(null)
       console.log('🔄 Carregando técnicos...')
       
-      const response = await tecnicosService.findAll()
-      // Handle PaginatedResponse or direct array
-      const data = Array.isArray(response) ? response : (response.data || [])
+      // ✅ Buscar todos os técnicos (múltiplas páginas automaticamente)
+      const allTecnicos = await fetchAllPaginated(
+        (page, limit) => tecnicosService.findAll({ page, limit })
+      )
       
-      setTecnicos(data)
-      console.log('✅ Técnicos carregados:', data.length)
+      setTecnicos(allTecnicos)
+      console.log('✅ Técnicos carregados:', allTecnicos.length)
     } catch (err) {
       console.error('❌ Erro ao carregar técnicos:', err)
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar técnicos'

@@ -28,13 +28,17 @@ import {
 import { ArrowLeft, Calendar, Briefcase, Clock, TrendingUp, Camera, Trash2, Users, Loader2, AlertCircle } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 
+// URL base do backend para servir arquivos estáticos
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+
 export default function TecnicoDetailPage() {
   const { user } = useAuth()
-  const { error: showError } = useNotification()
+  const { error: showError, success } = useNotification()
   const router = useRouter()
   const params = useParams()
   const tecnicoId = params.id as string
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Backend integration states
@@ -187,26 +191,88 @@ export default function TecnicoDetailPage() {
     ? evolutionData.reduce((sum, note) => sum + Number(note.score || 0), 0) / evolutionData.length
     : 0
 
+  // Get the last evaluation date
+  const lastEvaluation = evaluations.length > 0 ? evaluations[evaluations.length - 1] : null
+  const lastEvaluationDate = lastEvaluation 
+    ? new Date(lastEvaluation.evaluationDate).toLocaleDateString("pt-BR")
+    : null
+
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setProfilePhoto(reader.result as string)
+      // Validação do arquivo
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+      if (!validTypes.includes(file.type)) {
+        showError('Formato de imagem inválido. Use JPG, PNG, WEBP ou GIF')
+        return
       }
-      reader.readAsDataURL(file)
+      
+      const maxSize = 5 * 1024 * 1024 // 5MB
+      if (file.size > maxSize) {
+        showError('Imagem muito grande. Tamanho máximo: 5MB')
+        return
+      }
+      
+      // Upload da foto
+      uploadPhoto(file)
+    }
+  }
+
+  const uploadPhoto = async (file: File) => {
+    try {
+      setUploadingPhoto(true)
+      console.log('📸 Fazendo upload da foto...')
+      
+      await tecnicosService.uploadPhoto(tecnicoId, file)
+      
+      success('Foto atualizada com sucesso!')
+      console.log('✅ Foto enviada')
+      
+      // Recarregar dados do técnico para obter URL da foto
+      await fetchTecnicoData()
+    } catch (err) {
+      console.error('❌ Erro ao fazer upload da foto:', err)
+      showError(err instanceof Error ? err.message : 'Erro ao fazer upload da foto')
+    } finally {
+      setUploadingPhoto(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
   const handlePhotoClick = () => {
-    fileInputRef.current?.click()
+    if (!uploadingPhoto) {
+      fileInputRef.current?.click()
+    }
   }
 
-  const handlePhotoDelete = () => {
-    setProfilePhoto(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
+  const handlePhotoDelete = async () => {
+    if (!tecnico?.photo) return
+    
+    try {
+      setUploadingPhoto(true)
+      console.log('🗑️ Removendo foto...')
+      
+      await tecnicosService.removePhoto(tecnicoId)
+      
+      success('Foto removida com sucesso!')
+      console.log('✅ Foto removida')
+      
+      // Recarregar dados do técnico
+      await fetchTecnicoData()
+    } catch (err) {
+      console.error('❌ Erro ao remover foto:', err)
+      showError(err instanceof Error ? err.message : 'Erro ao remover foto')
+    } finally {
+      setUploadingPhoto(false)
     }
+  }
+  
+  // Construir URL completa da foto
+  const getPhotoURL = (photoPath: string | null | undefined): string | null => {
+    if (!photoPath) return null
+    return `${API_BASE_URL}/${photoPath}`
   }
 
   return (
@@ -225,11 +291,17 @@ export default function TecnicoDetailPage() {
               {/* Avatar with Photo Upload */}
               <div className="relative group">
                 <Avatar className="h-32 w-32 border-4 border-primary/20">
-                  {profilePhoto ? (
-                    <AvatarImage src={profilePhoto} alt={tecnico.name} />
-                  ) : (
-                    <AvatarFallback className="text-4xl font-bold bg-primary text-white">{initials}</AvatarFallback>
-                  )}
+                  {tecnico.photo ? (
+                    <AvatarImage 
+                      src={getPhotoURL(tecnico.photo) || undefined} 
+                      alt={tecnico.name}
+                      onError={(e) => {
+                        // Fallback para iniciais se imagem não carregar
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  ) : null}
+                  <AvatarFallback className="text-4xl font-bold bg-primary text-white">{initials}</AvatarFallback>
                 </Avatar>
                 
                 {/* Photo Controls */}
@@ -240,16 +312,18 @@ export default function TecnicoDetailPage() {
                     className="h-8 w-8 p-0 rounded-full"
                     onClick={handlePhotoClick}
                     title="Alterar foto"
+                    disabled={uploadingPhoto}
                   >
-                    <Camera size={16} />
+                    {uploadingPhoto ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
                   </Button>
-                  {profilePhoto && (
+                  {tecnico.photo && (
                     <Button
                       size="sm"
                       variant="destructive"
                       className="h-8 w-8 p-0 rounded-full"
                       onClick={handlePhotoDelete}
                       title="Excluir foto"
+                      disabled={uploadingPhoto}
                     >
                       <Trash2 size={16} />
                     </Button>
@@ -347,13 +421,11 @@ export default function TecnicoDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-bold text-primary">
-                {lastScore > 0 ? lastScore.toFixed(1) : '--'}
-                {lastScore > 0 && <span className="text-lg text-muted-foreground"> / 5.0</span>}
+              <div className="text-2xl font-bold text-primary">
+                {lastEvaluationDate || '--'}
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {lastScore > 0 ? `(${((lastScore / 5) * 100).toFixed(0)}%) ` : ''}
-                {evolutionData.length > 0 ? 'Disponível' : 'Sem avaliações'}
+                {lastEvaluationDate ? `Nota: ${lastScore.toFixed(1)} / 5.0` : 'Sem avaliações'}
               </p>
             </CardContent>
           </Card>

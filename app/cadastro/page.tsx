@@ -77,6 +77,7 @@ export default function CadastroPage() {
   const [submitting, setSubmitting] = useState(false)
   
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [selectedMachine, setSelectedMachine] = useState<string | null>(null)
   
   const [colaboradorForm, setColaboradorForm] = useState<ColaboradorForm>({
@@ -317,10 +318,25 @@ export default function CadastroPage() {
         tecnicoData.password = colaboradorForm.password
       }
       
-      await tecnicosService.create(tecnicoData)
+      // Criar técnico primeiro
+      console.log('🔄 Criando técnico...')
+      const createdTecnico = await tecnicosService.create(tecnicoData)
+      console.log('✅ Técnico criado:', createdTecnico.id)
       
-      success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
-      console.log('✅ Técnico criado')
+      // Se houver foto, fazer upload separadamente
+      if (photoFile) {
+        console.log('📸 Fazendo upload da foto...')
+        try {
+          await tecnicosService.uploadPhoto(createdTecnico.id, photoFile)
+          console.log('✅ Foto enviada')
+          success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso (com foto)!`)
+        } catch (photoError) {
+          console.warn('⚠️ Erro ao fazer upload da foto:', photoError)
+          warning(`Colaborador ${colaboradorForm.name} foi cadastrado, mas houve erro no upload da foto`)
+        }
+      } else {
+        success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
+      }
       
       // Reset form
       setColaboradorForm({
@@ -339,6 +355,7 @@ export default function CadastroPage() {
         password: "",
       })
       setProfilePhoto(null)
+      setPhotoFile(null)
     } catch (err) {
       console.error('❌ Erro ao criar técnico:', err)
       showError(err instanceof Error ? err.message : 'Erro ao cadastrar colaborador')
@@ -350,6 +367,21 @@ export default function CadastroPage() {
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      // Validação do arquivo
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+      if (!validTypes.includes(file.type)) {
+        showError('Formato de imagem inválido. Use JPG, PNG, WEBP ou GIF')
+        return
+      }
+      
+      const maxSize = 5 * 1024 * 1024 // 5MB
+      if (file.size > maxSize) {
+        showError('Imagem muito grande. Tamanho máximo: 5MB')
+        return
+      }
+      
+      // Guardar arquivo e criar preview
+      setPhotoFile(file)
       const reader = new FileReader()
       reader.onloadend = () => {
         setProfilePhoto(reader.result as string)
@@ -360,6 +392,7 @@ export default function CadastroPage() {
 
   const removePhoto = () => {
     setProfilePhoto(null)
+    setPhotoFile(null)
   }
 
   const isSupervisor = colaboradorForm.senioridade === "Supervisor"

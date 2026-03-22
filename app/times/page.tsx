@@ -34,6 +34,7 @@ import { teamsService, subtimesService, usersService } from "@/core/services"
 import type { Team, SubTeam, User } from "@/core/types"
 import Link from "next/link"
 import { useAuth, useNotification } from "@/core/contexts"
+import { fetchAllPaginated } from "@/core/utils/pagination.utils"
 
 export default function TimesPage() {
   const { isSupervisor, isAdmin } = useAuth()
@@ -69,24 +70,21 @@ export default function TimesPage() {
       setError(null)
       console.log('🔄 Buscando times, subtimes e usuários...')
       
-      const [teamsData, subtimesData, usersResponse] = await Promise.all([
+      const [teamsData, subtimesData, allUsers] = await Promise.all([
         teamsService.findAll(),
         subtimesService.findAll(),
-        usersService.findAll(),
+        fetchAllPaginated((page, limit) => usersService.findAll({ page, limit })),
       ])
-      
-      // usersService.findAll() retorna paginado
-      const usersData = usersResponse.data || []
       
       console.log('✅ Dados carregados:', {
         teams: teamsData.length,
         subtimes: subtimesData.length,
-        users: usersData.length,
+        users: allUsers.length,
       })
       
       setTeams(teamsData)
       setSubtimes(subtimesData)
-      setUsers(usersData)
+      setUsers(allUsers)
     } catch (err) {
       console.error('❌ Erro ao buscar dados:', err)
       setError(err instanceof Error ? err.message : 'Erro ao carregar dados')
