@@ -271,9 +271,15 @@ export default function TecnicoDetailPage() {
   
   // Construir URL completa da foto
   const getPhotoURL = (photoPath: string | null | undefined): string | null => {
-    if (!photoPath) return null
-    return `${API_BASE_URL}/${photoPath}`
-  }
+  if (!photoPath) return null
+  
+  // Se já for uma URL completa, retorna ela
+  if (photoPath.startsWith('http')) return photoPath
+  
+  // Remove barras duplicadas e garante o formato correto
+  const cleanPath = photoPath.replace(/^\/+/, '')
+  return `${API_BASE_URL}/${cleanPath}`
+}
 
   return (
     <AppLayout>
@@ -296,8 +302,12 @@ export default function TecnicoDetailPage() {
                       src={getPhotoURL(tecnico.photo) || undefined} 
                       alt={tecnico.name}
                       onError={(e) => {
-                        // Fallback para iniciais se imagem não carregar
+                        console.error('❌ Erro ao carregar imagem:', tecnico.photo)
+                        console.error('❌ URL tentada:', getPhotoURL(tecnico.photo))
                         e.currentTarget.style.display = 'none'
+                      }}
+                      onLoad={() => {
+                        console.log('Imagem carregada com sucesso:', tecnico.photo)
                       }}
                     />
                   ) : null}

@@ -497,9 +497,15 @@ export interface UpdateQuarterlyNoteRequest {
 
 export interface DashboardMetrics {
   totalTecnicos: number
-  averageScore: string
-  averageSkillLevel: string
-  period: string
+  activeTecnicos: number
+  avgQuarterlyScore: string
+  totalEvaluations: number
+  totalTeams: number
+  totalMachines: number
+  tecnicosByShift: Array<{ shift: string; count: number }>
+  tecnicosBySenioridade: Array<{ senioridade: string; count: number }>
+  tecnicosByGender: Array<{ gender: string; count: number }>
+  tecnicosByArea: Array<{ area: string; count: number }>
 }
 
 export interface PerformanceTrend {

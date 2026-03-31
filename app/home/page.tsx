@@ -22,10 +22,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Previne múltiplos redirecionamentos
     if (hasRedirected.current || authLoading) return
-
-    // Redireciona para login apenas se NÃO estiver autenticado
     if (!user) {
       hasRedirected.current = true
       router.replace("/login")
@@ -57,10 +54,7 @@ export default function DashboardPage() {
     fetchDashboardMetrics()
   }, [user])
 
-  // Permite acesso para master E supervisor
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
   // Loading state
   if (loading) {
@@ -83,36 +77,47 @@ export default function DashboardPage() {
         <div className="p-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {error}
-            </AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         </div>
       </AppLayout>
     )
   }
 
-  // Valores com fallback para mock (caso backend não retorne alguns dados)
+  // ============================================
+  // DADOS REAIS DO BACKEND
+  // ============================================
   const totalTecnicos = metrics?.totalTecnicos || 0
-  const averageScore = typeof metrics?.averageScore === 'string' 
-    ? parseFloat(metrics.averageScore) 
+  const activeTecnicos = metrics?.activeTecnicos || 0
+  const averageScore = typeof metrics?.avgQuarterlyScore === 'string' 
+    ? parseFloat(metrics.avgQuarterlyScore) 
     : 0
-  
-  // Dados temporários até backend fornecer
-  const onlineCount = totalTecnicos // Backend deverá fornecer campo específico
-  const machinesCount = 0 // Backend deverá fornecer
-  const totalTeams = 0 // Backend deverá fornecer
-  
-  // Dados hardcoded temporários (até backend fornecer)
-  const coordCount = 5
-  const auxiliaresCount = 10
-  const femaleCount = 12
-  const maleCount = 18
-  const juniorCount = 8
-  const plenoCount = 12
-  const seniorCount = 7
-  const specialistCount = 3
+  const totalTeams = metrics?.totalTeams || 0
+  const totalMachines = metrics?.totalMachines || 0
 
+  // Dados por gênero
+  const femaleCount = metrics?.tecnicosByGender?.find(g => g.gender === 'F')?.count || 0
+  const maleCount = metrics?.tecnicosByGender?.find(g => g.gender === 'M')?.count || 0
+
+  // Dados por senioridade
+  const juniorCount = metrics?.tecnicosBySenioridade?.find(s => s.senioridade === 'Junior')?.count || 0
+  const plenoCount = metrics?.tecnicosBySenioridade?.find(s => s.senioridade === 'Pleno')?.count || 0
+  const seniorCount = metrics?.tecnicosBySenioridade?.find(s => s.senioridade === 'Sênior')?.count || 0
+  const specialistCount = metrics?.tecnicosBySenioridade?.find(s => s.senioridade === 'Especialista')?.count || 0
+  const auxiliarCount = metrics?.tecnicosBySenioridade?.find(s => s.senioridade === 'Auxiliar')?.count || 0
+  const coordCount = metrics?.tecnicosBySenioridade?.find(s => s.senioridade === 'Coordenador')?.count || 0
+  const supervisorCount = metrics?.tecnicosBySenioridade?.find(s => s.senioridade === 'Supervisor')?.count || 0
+
+  // Dados por turno para o gráfico
+  const shiftData = {
+    '1T': metrics?.tecnicosByShift?.find(s => s.shift === '1T')?.count || 0,
+    '2T': metrics?.tecnicosByShift?.find(s => s.shift === '2T')?.count || 0,
+    '3T': metrics?.tecnicosByShift?.find(s => s.shift === '3T')?.count || 0,
+    'ADM': metrics?.tecnicosByShift?.find(s => s.shift === 'ADM')?.count || 0,
+  }
+
+  // Dados do gráfico de pontuação por turno (mockado pois backend não tem ainda)
+  // Mantemos os dados mockados pois é um gráfico de tendência que pode ser implementado depois
   const shiftScoreData = [
     {
       shift: "1º Turno",
@@ -199,29 +204,31 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mt-2">Visão geral do desempenho dos colaboradores</p>
         </div>
 
-        {/* Stats Grid */}
+        {/* Stats Grid - MANTENDO EXATAMENTE O MESMO LAYOUT */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Dados reais do backend */}
+          {/* Total Técnicos */}
           <Card className="border-primary/10 bg-primary/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-primary">Total Técnicos</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-primary">{totalTecnicos}</div>
-              <p className="text-[10px] text-muted-foreground mt-1">cadastrados no sistema</p>
+              <p className="text-[10px] text-muted-foreground mt-1">colaboradores cadastrados</p>
             </CardContent>
           </Card>
 
+          {/* Técnicos Ativos */}
           <Card className="border-primary/10 bg-primary/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-primary">Técnicos Ativos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{onlineCount}</div>
+              <div className="text-2xl font-bold text-green-600">{activeTecnicos}</div>
               <p className="text-[10px] text-muted-foreground mt-1">colaboradores ativos</p>
             </CardContent>
           </Card>
 
+          {/* Pontuação Média */}
           <Card className="border-primary/10 bg-primary/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-primary">Pontuação Média</CardTitle>
@@ -232,6 +239,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Total de Times */}
           <Card className="border-primary/10 bg-primary/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-primary">Total de Times</CardTitle>
@@ -242,17 +250,18 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Máquinas */}
           <Card className="border-primary/10 bg-primary/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-primary">Máquinas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{machinesCount}</div>
+              <div className="text-2xl font-bold text-primary">{totalMachines}</div>
               <p className="text-[10px] text-muted-foreground mt-1">disponíveis</p>
             </CardContent>
           </Card>
 
-          {/* Dados temporários (até backend fornecer) */}
+          {/* Qtd Mul. - DADOS REAIS */}
           <Card className="border-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Mul.</CardTitle>
@@ -263,6 +272,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Qtd Hom. - DADOS REAIS */}
           <Card className="border-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Hom.</CardTitle>
@@ -273,6 +283,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Qtd Jr - DADOS REAIS */}
           <Card className="border-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Jr</CardTitle>
@@ -283,6 +294,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Qtd Pl - DADOS REAIS */}
           <Card className="border-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Pl</CardTitle>
@@ -293,6 +305,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Qtd Sr - DADOS REAIS */}
           <Card className="border-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Sr</CardTitle>
@@ -303,6 +316,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Qtd Spec - DADOS REAIS */}
           <Card className="border-primary/10">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-semibold text-muted-foreground">Qtd Spec</CardTitle>
@@ -314,6 +328,7 @@ export default function DashboardPage() {
           </Card>
         </div>
 
+        {/* Gráfico - MANTIDO IGUAL */}
         <Card>
           <CardHeader>
             <CardTitle>Pontuação Anual por Turno</CardTitle>

@@ -1,85 +1,114 @@
-"use client"
+"use client";
 
-import { useAuth, useNotification } from "@/core/contexts"
-import { useRouter } from "next/navigation"
-import { AppLayout } from "@/shared/components/layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
-import { Button } from "@/shared/components/ui/button"
-import { Input } from "@/shared/components/ui/input"
-import { Badge } from "@/shared/components/ui/badge"
-import { Alert, AlertDescription } from "@/shared/components/ui/alert"
+import { useAuth, useNotification } from "@/core/contexts";
+import { useRouter } from "next/navigation";
+import { AppLayout } from "@/shared/components/layout";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/shared/components/ui/tabs";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
+import { Badge } from "@/shared/components/ui/badge";
+import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/shared/components/ui/dialog"
-import { useState, useEffect } from "react"
-import { Settings, Plus, Upload, X, Loader2, AlertCircle } from "lucide-react"
-import { 
-  tecnicosService, 
-  teamsService, 
-  subtimesService, 
-  machinesService, 
-  skillsService 
-} from "@/core/services"
-import { SkillLevel } from "@/core/types"
-import type { Team, SubTeam, Machine, Skill } from "@/core/types"
+  DialogFooter,
+} from "@/shared/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { Settings, Plus, Upload, X, Loader2, AlertCircle } from "lucide-react";
+import {
+  tecnicosService,
+  teamsService,
+  subtimesService,
+  machinesService,
+  skillsService,
+} from "@/core/services";
+import { SkillLevel } from "@/core/types";
+import type { Team, SubTeam, Machine, Skill } from "@/core/types";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/shared/components";
 
-type Senioridade = 'Auxiliar' | 'Junior' | 'Pleno' | 'Sênior' | 'Especialista' | 'Coordenador' | 'Supervisor'
-type Area = 'Produção' | 'Manutenção' | 'Qualidade' | 'Engenharia' | 'Logística' | 'Administrativa' | 'Outro'
+type Senioridade =
+  | "Auxiliar"
+  | "Junior"
+  | "Pleno"
+  | "Sênior"
+  | "Especialista"
+  | "Coordenador"
+  | "Supervisor";
+type Area =
+  | "Produção"
+  | "Manutenção"
+  | "Qualidade"
+  | "Engenharia"
+  | "Logística"
+  | "Administrativa"
+  | "Outro";
 
 type ColaboradorForm = {
-  name: string
-  workday: string // Matrícula do colaborador
-  cargo: string
-  senioridade: Senioridade | ""
-  area: Area | ""
-  shift: "1T" | "2T" | "3T" | "ADM" | ""
-  department: string
-  teamId: string
-  subtimeId: string
-  gender: "M" | "F" | ""
-  joinDate: string
+  id?: string;
+  name: string;
+  workday: string; // Matrícula do colaborador
+  cargo: string;
+  senioridade: Senioridade | "";
+  area: Area | "";
+  shift: "1T" | "2T" | "3T" | "ADM" | "";
+  department: string;
+  teamId: string;
+  subtimeId: string;
+  gender: "M" | "F" | "";
+  joinDate: string;
   // Sistema Multi-Supervisor: credenciais obrigatórias se senioridade = Supervisor
-  email: string
-  password: string
-}
+  email: string;
+  password: string;
+};
 
 type MachineForm = {
-  name: string
-  code: string
-  teamId: string
-}
+  name: string;
+  code: string;
+  teamId: string;
+};
 
 type SkillForm = {
-  name: string
-  category: string
-  teamId: string
-  subtimeId: string
-  machineId: string
-}
+  name: string;
+  category: string;
+  teamId: string;
+  subtimeId: string;
+  machineId: string;
+};
 
 export default function CadastroPage() {
-  const { user } = useAuth()
-  const { success, error: showError, warning } = useNotification()
-  const router = useRouter()
-  
+  const { user } = useAuth();
+  const { success, error: showError, warning } = useNotification();
+  const router = useRouter();
+
   // Estados de dados do backend
-  const [teams, setTeams] = useState<Team[]>([])
-  const [subtimes, setSubtimes] = useState<SubTeam[]>([])
-  const [machines, setMachines] = useState<Machine[]>([])
-  const [skills, setSkills] = useState<Skill[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
-  const [selectedMachine, setSelectedMachine] = useState<string | null>(null)
-  
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [subtimes, setSubtimes] = useState<SubTeam[]>([]);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [tecnicos, setTecnicos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
+
   const [colaboradorForm, setColaboradorForm] = useState<ColaboradorForm>({
     name: "",
     workday: "",
@@ -94,13 +123,13 @@ export default function CadastroPage() {
     joinDate: "",
     email: "",
     password: "",
-  })
+  });
 
   const [machineForm, setMachineForm] = useState<MachineForm>({
     name: "",
     code: "",
-    teamId: ""
-  })
+    teamId: "",
+  });
 
   const [skillForm, setSkillForm] = useState<SkillForm>({
     name: "",
@@ -108,60 +137,66 @@ export default function CadastroPage() {
     teamId: "",
     subtimeId: "",
     machineId: "",
-  })
+  });
 
-  const [availableSubtimes, setAvailableSubtimes] = useState<SubTeam[]>([])
+  const [subtimeDialogOpen, setSubtimeDialogOpen] = useState(false);
+  const [newSubtimeForm, setNewSubtimeForm] = useState({
+    name: "",
+    description: "",
+    teamId: "",
+    coordenadorId: "",
+  });
+  const [creatingSubtime, setCreatingSubtime] = useState(false);
+
+  const [availableSubtimes, setAvailableSubtimes] = useState<SubTeam[]>([]);
 
   // Buscar dados do backend
   useEffect(() => {
-    fetchAllData()
-  }, [])
+    fetchAllData();
+  }, []);
 
   const fetchAllData = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      console.log('🔄 Buscando dados de cadastro...')
-      
-      const [teamsData, subtimesData, machinesData, skillsData] = await Promise.all([
-        teamsService.findAll(),
-        subtimesService.findAll(),
-        machinesService.findAll(),
-        skillsService.findAll(),
-      ])
-      
-      console.log('✅ Dados carregados:', {
-        teams: teamsData.length,
-        subtimes: subtimesData.length,
-        machines: machinesData.length,
-        skills: skillsData.length,
-      })
-      
-      setTeams(teamsData)
-      setSubtimes(subtimesData)
-      setMachines(machinesData)
-      setSkills(skillsData)
+      setLoading(true);
+      setError(null);
+
+      const [teamsData, subtimesData, machinesData, skillsData, tecnicosData] =
+        await Promise.all([
+          teamsService.findAll(),
+          subtimesService.findAll(),
+          machinesService.findAll(),
+          skillsService.findAll(),
+          tecnicosService.findAll({ limit: 100 }),
+        ]);
+
+      setTeams(teamsData);
+      setSubtimes(subtimesData);
+      setMachines(machinesData);
+      setSkills(skillsData);
+      setTecnicos(tecnicosData.data || []);
     } catch (err) {
-      console.error('❌ Erro ao buscar dados:', err)
-      setError(err instanceof Error ? err.message : 'Erro ao carregar dados')
+      console.error("❌ Erro ao buscar dados:", err);
+      setError(err instanceof Error ? err.message : "Erro ao carregar dados");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     if (colaboradorForm.teamId) {
-      const filteredSubtimes = subtimes.filter(st => st.parentTeamId === colaboradorForm.teamId)
-      setAvailableSubtimes(filteredSubtimes)
+      const filteredSubtimes = subtimes.filter(
+        (st) => st.parentTeamId === colaboradorForm.teamId,
+      );
+      setAvailableSubtimes(filteredSubtimes);
     } else {
-      setAvailableSubtimes([])
-      setColaboradorForm(prev => ({ ...prev, subtimeId: "" }))
+      setAvailableSubtimes([]);
+      setColaboradorForm((prev) => ({ ...prev, subtimeId: "" }));
     }
-  }, [colaboradorForm.teamId, subtimes])
+  }, [colaboradorForm.teamId, subtimes]);
 
   if (!user || user.role !== "master") {
-    router.replace("/login")
-    return null
+    router.replace("/login");
+    return null;
   }
 
   // Loading state
@@ -171,11 +206,13 @@ export default function CadastroPage() {
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-            <p className="text-muted-foreground">Carregando dados de cadastro...</p>
+            <p className="text-muted-foreground">
+              Carregando dados de cadastro...
+            </p>
           </div>
         </div>
       </AppLayout>
-    )
+    );
   }
 
   // Error state
@@ -194,54 +231,64 @@ export default function CadastroPage() {
           </div>
         </div>
       </AppLayout>
-    )
+    );
   }
 
   const machineSkills = (machineId: string) => {
-    return skills.filter(skill => skill.machineId === machineId)
-  }
+    return skills.filter((skill) => skill.machineId === machineId);
+  };
 
-  const selectedMachineData = machines.find(m => m.id === selectedMachine)
-  const selectedMachineSkills = selectedMachine ? machineSkills(selectedMachine) : []
+  const selectedMachineData = machines.find((m) => m.id === selectedMachine);
+  const selectedMachineSkills = selectedMachine
+    ? machineSkills(selectedMachine)
+    : [];
 
   const handleAddMachine = async () => {
     if (!machineForm.name || !machineForm.code || !machineForm.teamId) {
-      showError("Preencha todos os campos!")
-      return
+      showError("Preencha todos os campos!");
+      return;
     }
 
     try {
-      setSubmitting(true)
-      console.log('🔄 Criando máquina...', machineForm)
-      
+      setSubmitting(true);
+      console.log("🔄 Criando máquina...", machineForm);
+
       await machinesService.create({
         ...machineForm,
         code: machineForm.code.toUpperCase(),
-      })
-      
-      success(`Máquina ${machineForm.name} cadastrada com sucesso!`)
-      console.log('✅ Máquina criada')
-      
-      await fetchAllData()
-      setMachineForm({ name: "", code: "", teamId: "" })
+      });
+
+      success(`Máquina ${machineForm.name} cadastrada com sucesso!`);
+      console.log("✅ Máquina criada");
+
+      await fetchAllData();
+      setMachineForm({ name: "", code: "", teamId: "" });
     } catch (err) {
-      console.error('❌ Erro ao criar máquina:', err)
-      showError(err instanceof Error ? err.message : 'Erro ao cadastrar máquina')
+      console.error("❌ Erro ao criar máquina:", err);
+      showError(
+        err instanceof Error ? err.message : "Erro ao cadastrar máquina",
+      );
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleAddSkill = async () => {
-    if (!skillForm.name || !skillForm.category || !skillForm.teamId || !skillForm.subtimeId || !skillForm.machineId) {
-      showError("Preencha todos os campos obrigatórios!")
-      return
+    if (
+      !skillForm.name ||
+      !skillForm.category ||
+      !skillForm.teamId ||
+      !skillForm.subtimeId ||
+      !skillForm.machineId
+    ) {
+      showError("Preencha todos os campos obrigatórios!");
+      return;
     }
 
     try {
-      setSubmitting(true)
-      console.log('🔄 Criando habilidade...', skillForm)
-      
+      setSubmitting(true);
+      console.log("🔄 Criando habilidade...", skillForm);
+
       await skillsService.create({
         name: skillForm.name,
         category: skillForm.category,
@@ -249,53 +296,70 @@ export default function CadastroPage() {
         subtimeId: skillForm.subtimeId,
         machineId: skillForm.machineId,
         level: SkillLevel.INTERMEDIARIO, // Valor padrão do enum SkillLevel
-      })
-      
-      success(`Habilidade ${skillForm.name} cadastrada com sucesso!`)
-      console.log('✅ Habilidade criada')
-      
-      await fetchAllData()
-      setSkillForm({ name: "", category: "", teamId: "", subtimeId: "", machineId: "" })
+      });
+
+      success(`Habilidade ${skillForm.name} cadastrada com sucesso!`);
+      console.log("✅ Habilidade criada");
+
+      await fetchAllData();
+      setSkillForm({
+        name: "",
+        category: "",
+        teamId: "",
+        subtimeId: "",
+        machineId: "",
+      });
     } catch (err) {
-      console.error('❌ Erro ao criar habilidade:', err)
-      showError(err instanceof Error ? err.message : 'Erro ao cadastrar habilidade')
+      console.error("❌ Erro ao criar habilidade:", err);
+      showError(
+        err instanceof Error ? err.message : "Erro ao cadastrar habilidade",
+      );
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleAddColaborador = async () => {
-    if (!colaboradorForm.name || !colaboradorForm.workday || !colaboradorForm.cargo || 
-        !colaboradorForm.senioridade || !colaboradorForm.area || !colaboradorForm.shift || 
-        !colaboradorForm.department || !colaboradorForm.gender || !colaboradorForm.joinDate) {
-      showError("Preencha todos os campos obrigatórios!")
-      return
+    if (
+      !colaboradorForm.name ||
+      !colaboradorForm.workday ||
+      !colaboradorForm.cargo ||
+      !colaboradorForm.senioridade ||
+      !colaboradorForm.area ||
+      !colaboradorForm.shift ||
+      !colaboradorForm.department ||
+      !colaboradorForm.gender ||
+      !colaboradorForm.joinDate
+    ) {
+      showError("Preencha todos os campos obrigatórios!");
+      return;
     }
 
     // Se for Supervisor, email e password são obrigatórios
     if (colaboradorForm.senioridade === "Supervisor") {
       if (!colaboradorForm.email || !colaboradorForm.password) {
-        showError("E-mail e senha são obrigatórios para Supervisores!")
-        return
+        showError("E-mail e senha são obrigatórios para Supervisores!");
+        return;
       }
       if (colaboradorForm.password.length < 8) {
-        showError("Senha deve ter no mínimo 8 caracteres!")
-        return
+        showError("Senha deve ter no mínimo 8 caracteres!");
+        return;
       }
     }
 
     // Se não for Supervisor, precisa ter time e sub-time
     if (colaboradorForm.senioridade !== "Supervisor") {
       if (!colaboradorForm.teamId || !colaboradorForm.subtimeId) {
-        warning("Colaboradores não-supervisores precisam ter Time e Sub-time definidos!")
-        return
+        warning(
+          "Colaboradores não-supervisores precisam ter Time e Sub-time definidos!",
+        );
+        return;
       }
     }
 
     try {
-      setSubmitting(true)
-      console.log('🔄 Criando técnico...', colaboradorForm)
-      
+      setSubmitting(true);
+
       // Mapear dados do formulário para a estrutura esperada pelo backend
       const tecnicoData: any = {
         name: colaboradorForm.name,
@@ -310,34 +374,34 @@ export default function CadastroPage() {
         shift: colaboradorForm.shift,
         department: colaboradorForm.department,
         gender: colaboradorForm.gender,
-      }
+      };
 
       // Adicionar credenciais se for Supervisor
       if (colaboradorForm.senioridade === "Supervisor") {
-        tecnicoData.email = colaboradorForm.email
-        tecnicoData.password = colaboradorForm.password
+        tecnicoData.email = colaboradorForm.email;
+        tecnicoData.password = colaboradorForm.password;
       }
-      
+
       // Criar técnico primeiro
-      console.log('🔄 Criando técnico...')
-      const createdTecnico = await tecnicosService.create(tecnicoData)
-      console.log('✅ Técnico criado:', createdTecnico.id)
-      
+      console.log("🔄 Criando técnico...");
+      const createdTecnico = await tecnicosService.create(tecnicoData);
+      console.log("✅ Técnico criado:", createdTecnico.id);
+
       // Se houver foto, fazer upload separadamente
       if (photoFile) {
-        console.log('📸 Fazendo upload da foto...')
+        console.log("📸 Fazendo upload da foto...", photoFile.name, photoFile.size);
         try {
-          await tecnicosService.uploadPhoto(createdTecnico.id, photoFile)
-          console.log('✅ Foto enviada')
-          success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso (com foto)!`)
+          const result = await tecnicosService.uploadPhoto(createdTecnico.id, photoFile);
+          console.log("✅ Foto enviada");
+          success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso (com foto)!`);
         } catch (photoError) {
-          console.warn('⚠️ Erro ao fazer upload da foto:', photoError)
-          warning(`Colaborador ${colaboradorForm.name} foi cadastrado, mas houve erro no upload da foto`)
+          console.warn("⚠️ Erro ao fazer upload da foto:", photoError);
+          warning(`Colaborador ${colaboradorForm.name} foi cadastrado, mas houve erro no upload da foto`);
         }
       } else {
-        success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`)
+        success(`Colaborador ${colaboradorForm.name} cadastrado com sucesso!`);
       }
-      
+
       // Reset form
       setColaboradorForm({
         name: "",
@@ -353,56 +417,131 @@ export default function CadastroPage() {
         joinDate: "",
         email: "",
         password: "",
-      })
-      setProfilePhoto(null)
-      setPhotoFile(null)
+      });
+      setProfilePhoto(null);
+      setPhotoFile(null);
     } catch (err) {
-      console.error('❌ Erro ao criar técnico:', err)
-      showError(err instanceof Error ? err.message : 'Erro ao cadastrar colaborador')
+      console.error("❌ Erro ao criar técnico:", err);
+      showError(
+        err instanceof Error ? err.message : "Erro ao cadastrar colaborador",
+      );
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
+
+  const handleCreateSubtime = async () => {
+    if (
+      !newSubtimeForm.name ||
+      !newSubtimeForm.description ||
+      !newSubtimeForm.teamId
+    ) {
+      showError(
+        "Preencha todos os campos obrigatórios (Nome, Descrição e Time)!",
+      );
+      return;
+    }
+
+    try {
+      setCreatingSubtime(true);
+
+      const newSubTeam = await subtimesService.create({
+        name: newSubtimeForm.name,
+        description: newSubtimeForm.description,
+        parentTeamId: newSubtimeForm.teamId,
+        coordenadorId: newSubtimeForm.coordenadorId || undefined,
+        functions: [],
+        evaluationCriteria: [],
+      });
+
+      success(`Sub-time "${newSubTeam.name}" criado com sucesso!`);
+
+      const updatedSubtimes = await subtimesService.findAll();
+      setSubtimes(updatedSubtimes);
+
+      if (newSubtimeForm.coordenadorId === colaboradorForm.id) {
+        setColaboradorForm((prev) => ({ ...prev, subtimeId: newSubTeam.id }));
+      }
+
+      setSubtimeDialogOpen(false);
+      setNewSubtimeForm({
+        name: "",
+        description: "",
+        teamId: "",
+        coordenadorId: "",
+      });
+    } catch (err) {
+      console.error("Erro ao criar sub-time:", err);
+      showError(err instanceof Error ? err.message : "Erro ao criar sub-time");
+    } finally {
+      setCreatingSubtime(false);
+    }
+  };
+
+  const handleOpenSubtimeDialog = () => {
+    if (!colaboradorForm.teamId) {
+      showError("Selecione um time primeiro para criar um sub-time!");
+      return;
+    }
+    setNewSubtimeForm({
+      name: "",
+      description: "",
+      teamId: colaboradorForm.teamId,
+      coordenadorId: isSupervisor ? (colaboradorForm as any).id : "",
+    });
+    setSubtimeDialogOpen(true);
+  };
 
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (file) {
+      console.log('Arquivo selecionado:', file.name, file.size, file.type);
       // Validação do arquivo
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+      const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
       if (!validTypes.includes(file.type)) {
-        showError('Formato de imagem inválido. Use JPG, PNG, WEBP ou GIF')
-        return
+        showError("Formato de imagem inválido. Use JPG, PNG, WEBP ou GIF");
+        return;
       }
-      
-      const maxSize = 5 * 1024 * 1024 // 5MB
+
+      const maxSize = 5 * 1024 * 1024; // 5MB
       if (file.size > maxSize) {
-        showError('Imagem muito grande. Tamanho máximo: 5MB')
-        return
+        showError("Imagem muito grande. Tamanho máximo: 5MB");
+        return;
       }
-      
+
       // Guardar arquivo e criar preview
-      setPhotoFile(file)
-      const reader = new FileReader()
+      setPhotoFile(file);
+      const reader = new FileReader();
       reader.onloadend = () => {
-        setProfilePhoto(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+        setProfilePhoto(reader.result as string);
+        console.log('Preview da foto criado');
+      };
+      reader.onload = () => {
+        console.log('Leitura do arquivo concluída');
+      };
+      reader.onerror = (error) => {
+        console.error('Erro ao ler arquivo:', error);
+        showError('Erro carregar a imagem');
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   const removePhoto = () => {
-    setProfilePhoto(null)
-    setPhotoFile(null)
-  }
+    setProfilePhoto(null);
+    setPhotoFile(null);
+  };
 
-  const isSupervisor = colaboradorForm.senioridade === "Supervisor"
+  const isSupervisor = colaboradorForm.senioridade === "Supervisor";
 
   return (
     <AppLayout>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-4xl font-bold text-primary">Cadastro</h1>
-          <p className="text-muted-foreground mt-2">Gerenciar colaboradores, máquinas e habilidades</p>
+          <p className="text-muted-foreground mt-2">
+            Gerenciar colaboradores, máquinas e habilidades
+          </p>
         </div>
 
         <Tabs defaultValue="colaborador" className="space-y-4 w-full">
@@ -427,9 +566,9 @@ export default function CadastroPage() {
                   <div className="relative">
                     {profilePhoto ? (
                       <div className="relative">
-                        <img 
-                          src={profilePhoto} 
-                          alt="Foto do Colaborador" 
+                        <img
+                          src={profilePhoto}
+                          alt="Foto do Colaborador"
                           className="w-32 h-32 rounded-full object-cover border-4 border-primary"
                         />
                         <button
@@ -443,7 +582,9 @@ export default function CadastroPage() {
                       <label className="cursor-pointer">
                         <div className="w-32 h-32 rounded-full bg-gray-200 flex flex-col items-center justify-center border-2 border-dashed border-primary hover:bg-gray-300 transition">
                           <Upload size={32} className="text-primary mb-2" />
-                          <span className="text-xs text-gray-600">Adicionar Foto</span>
+                          <span className="text-xs text-gray-600">
+                            Adicionar Foto
+                          </span>
                         </div>
                         <input
                           type="file"
@@ -458,50 +599,86 @@ export default function CadastroPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Nome Completo <span className="text-red-500">*</span></label>
-                    <Input 
-                      placeholder="Nome completo" 
+                    <label className="text-sm font-semibold">
+                      Nome Completo <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Nome completo"
                       className="border-primary/20"
                       value={colaboradorForm.name}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, name: e.target.value })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          name: e.target.value,
+                        })
+                      }
                       disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Data de Admissão <span className="text-red-500">*</span></label>
-                    <Input 
+                    <label className="text-sm font-semibold">
+                      Data de Admissão <span className="text-red-500">*</span>
+                    </label>
+                    <Input
                       type="date"
                       className="border-primary/20"
                       value={colaboradorForm.joinDate}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, joinDate: e.target.value })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          joinDate: e.target.value,
+                        })
+                      }
                       disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Matrícula (Workday) <span className="text-red-500">*</span></label>
-                    <Input 
-                      placeholder="Ex: WDC00123, MAT12345" 
+                    <label className="text-sm font-semibold">
+                      Matrícula (Workday){" "}
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Ex: WDC00123, MAT12345"
                       className="border-primary/20"
                       value={colaboradorForm.workday}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, workday: e.target.value.toUpperCase() })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          workday: e.target.value.toUpperCase(),
+                        })
+                      }
                       disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Cargo <span className="text-red-500">*</span></label>
-                    <Input 
-                      placeholder="Ex: Engenheiro de Produção" 
+                    <label className="text-sm font-semibold">
+                      Cargo <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Ex: Engenheiro de Produção"
                       className="border-primary/20"
                       value={colaboradorForm.cargo}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, cargo: e.target.value })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          cargo: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Senioridade <span className="text-red-500">*</span></label>
-                    <select 
+                    <label className="text-sm font-semibold">
+                      Senioridade <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={colaboradorForm.senioridade}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, senioridade: e.target.value as Senioridade })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          senioridade: e.target.value as Senioridade,
+                        })
+                      }
                     >
                       <option value="">Selecione a senioridade</option>
                       <option value="Auxiliar">Auxiliar</option>
@@ -514,11 +691,18 @@ export default function CadastroPage() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Área <span className="text-red-500">*</span></label>
-                    <select 
+                    <label className="text-sm font-semibold">
+                      Área <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={colaboradorForm.area}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, area: e.target.value as Area })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          area: e.target.value as Area,
+                        })
+                      }
                     >
                       <option value="">Selecione a área</option>
                       <option value="Produção">Produção</option>
@@ -531,11 +715,18 @@ export default function CadastroPage() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Turno <span className="text-red-500">*</span></label>
-                    <select 
+                    <label className="text-sm font-semibold">
+                      Turno <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={colaboradorForm.shift}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, shift: e.target.value as "1T" | "2T" | "3T" })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          shift: e.target.value as "1T" | "2T" | "3T",
+                        })
+                      }
                     >
                       <option value="">Selecione o turno</option>
                       <option value="1T">1T - Primeiro Turno</option>
@@ -545,27 +736,41 @@ export default function CadastroPage() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Departamento <span className="text-red-500">*</span></label>
-                    <Input 
-                      placeholder="Ex: Engenharia" 
+                    <label className="text-sm font-semibold">
+                      Departamento <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Ex: Engenharia"
                       className="border-primary/20"
                       value={colaboradorForm.department}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, department: e.target.value })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          department: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Gênero <span className="text-red-500">*</span></label>
-                    <select 
+                    <label className="text-sm font-semibold">
+                      Gênero <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={colaboradorForm.gender}
-                      onChange={(e) => setColaboradorForm({ ...colaboradorForm, gender: e.target.value as "M" | "F" })}
+                      onChange={(e) =>
+                        setColaboradorForm({
+                          ...colaboradorForm,
+                          gender: e.target.value as "M" | "F",
+                        })
+                      }
                     >
                       <option value="">Selecione o gênero</option>
                       <option value="M">Masculino</option>
                       <option value="F">Feminino</option>
                     </select>
                   </div>
-                  
+
                   {/* Campos condicionais para Supervisor */}
                   {isSupervisor && (
                     <>
@@ -573,32 +778,45 @@ export default function CadastroPage() {
                         <Alert className="bg-blue-50 border-blue-200">
                           <AlertCircle className="h-4 w-4 text-blue-600" />
                           <AlertDescription className="text-blue-800">
-                            🔑 Ao cadastrar um Supervisor, uma conta de usuário será criada automaticamente com as credenciais informadas abaixo.
+                            🔑 Ao cadastrar um Supervisor, uma conta de usuário
+                            será criada automaticamente com as credenciais
+                            informadas abaixo.
                           </AlertDescription>
                         </Alert>
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-semibold">
-                          E-mail do Supervisor <span className="text-red-500">*</span>
+                          E-mail do Supervisor{" "}
+                          <span className="text-red-500">*</span>
                         </label>
-                        <Input 
+                        <Input
                           type="email"
-                          placeholder="supervisor@empresa.com" 
+                          placeholder="supervisor@empresa.com"
                           className="border-primary/20"
                           value={colaboradorForm.email}
-                          onChange={(e) => setColaboradorForm({ ...colaboradorForm, email: e.target.value })}
+                          onChange={(e) =>
+                            setColaboradorForm({
+                              ...colaboradorForm,
+                              email: e.target.value,
+                            })
+                          }
                         />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-semibold">
                           Senha <span className="text-red-500">*</span>
                         </label>
-                        <Input 
+                        <Input
                           type="password"
-                          placeholder="Mínimo 8 caracteres" 
+                          placeholder="Mínimo 8 caracteres"
                           className="border-primary/20"
                           value={colaboradorForm.password}
-                          onChange={(e) => setColaboradorForm({ ...colaboradorForm, password: e.target.value })}
+                          onChange={(e) =>
+                            setColaboradorForm({
+                              ...colaboradorForm,
+                              password: e.target.value,
+                            })
+                          }
                         />
                         <p className="text-xs text-muted-foreground">
                           Senha deve ter no mínimo 8 caracteres
@@ -606,59 +824,78 @@ export default function CadastroPage() {
                       </div>
                     </>
                   )}
-                  
+
                   {!isSupervisor && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="text-sm font-semibold">
-                          Time <span className="text-red-500">*</span>
-                        </label>
-                        <select 
-                          className="w-full border border-primary/20 rounded p-2 bg-white h-10"
-                          value={colaboradorForm.teamId}
-                          onChange={(e) => setColaboradorForm({ ...colaboradorForm, teamId: e.target.value })}
-                        >
-                          <option value="">Selecione um time</option>
-                          {teams.filter(t => t.status).map((team) => (
-                            <option key={team.id} value={team.id}>
-                              {team.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-semibold">
-                          Sub-time <span className="text-red-500">*</span>
-                        </label>
-                        <select 
-                          className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
-                          value={colaboradorForm.subtimeId}
-                          onChange={(e) => setColaboradorForm({ ...colaboradorForm, subtimeId: e.target.value })}
-                          disabled={!colaboradorForm.teamId}
-                        >
-                          <option value="">Selecione um sub-time</option>
-                          {availableSubtimes.map((subtime) => (
-                            <option key={subtime.id} value={subtime.id}>
-                              {subtime.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  )}
+  <>
+    {/* Campo Time - ADICIONAR ESTE */}
+    <div className="space-y-2">
+      <label className="text-sm font-semibold">
+        Time <span className="text-red-500">*</span>
+      </label>
+      <select 
+        className="w-full border border-primary/20 rounded p-2 bg-white h-10"
+        value={colaboradorForm.teamId}
+        onChange={(e) => setColaboradorForm({ ...colaboradorForm, teamId: e.target.value, subtimeId: "" })}
+      >
+        <option value="">Selecione um time</option>
+        {teams.filter(t => t.status).map((team) => (
+          <option key={team.id} value={team.id}>
+            {team.name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Campo Sub-time */}
+    <div className="space-y-2">
+      <label className="text-sm font-semibold">
+        Sub-time <span className="text-red-500">*</span>
+      </label>
+      <div className="flex gap-2">
+        <select 
+          className="flex-1 border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
+          value={colaboradorForm.subtimeId}
+          onChange={(e) => setColaboradorForm({ ...colaboradorForm, subtimeId: e.target.value })}
+          disabled={!colaboradorForm.teamId}
+        >
+          <option value="">Selecione um sub-time</option>
+          {availableSubtimes.map((subtime) => (
+            <option key={subtime.id} value={subtime.id}>
+              {subtime.name}
+            </option>
+          ))}
+        </select>
+
+        {/* Botão para criar novo sub-time */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleOpenSubtimeDialog}
+          disabled={!colaboradorForm.teamId}
+          className="whitespace-nowrap"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Novo
+        </Button>
+      </div>
+    </div>
+  </>
+)}
                 </div>
 
                 {isSupervisor && (
                   <div className="bg-blue-50 border border-blue-200 rounded p-4 mt-4">
                     <p className="text-sm text-blue-800">
-                      <strong>Nota:</strong> Supervisores não são alocados a times específicos. 
-                      Eles criarão seus próprios times após o cadastro.
+                      <strong>Nota:</strong> Supervisores não são alocados a
+                      times específicos. Eles criarão seus próprios times após o
+                      cadastro.
                     </p>
                   </div>
                 )}
 
-                <Button 
-                  className="bg-primary hover:bg-primary/90 w-full" 
+                <Button
+                  className="bg-primary hover:bg-primary/90 w-full"
                   onClick={handleAddColaborador}
                   disabled={submitting}
                 >
@@ -687,43 +924,64 @@ export default function CadastroPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Nome da Máquina <span className="text-red-500">*</span></label>
+                    <label className="text-sm font-semibold">
+                      Nome da Máquina <span className="text-red-500">*</span>
+                    </label>
                     <Input
                       value={machineForm.name}
-                      onChange={(e) => setMachineForm({ ...machineForm, name: e.target.value })}
+                      onChange={(e) =>
+                        setMachineForm({ ...machineForm, name: e.target.value })
+                      }
                       placeholder="Ex: LASER"
                       className="border-primary/20"
                       disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Código <span className="text-red-500">*</span></label>
+                    <label className="text-sm font-semibold">
+                      Código <span className="text-red-500">*</span>
+                    </label>
                     <Input
                       value={machineForm.code}
-                      onChange={(e) => setMachineForm({ ...machineForm, code: e.target.value })}
+                      onChange={(e) =>
+                        setMachineForm({ ...machineForm, code: e.target.value })
+                      }
                       placeholder="Ex: LSR-01"
                       className="border-primary/20"
                       disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Time <span className="text-red-500">*</span></label>
-                    <select 
+                    <label className="text-sm font-semibold">
+                      Time <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={machineForm.teamId}
-                      onChange={(e) => setMachineForm({ ...machineForm, teamId: e.target.value })}
+                      onChange={(e) =>
+                        setMachineForm({
+                          ...machineForm,
+                          teamId: e.target.value,
+                        })
+                      }
                       disabled={submitting}
                     >
                       <option value="">Selecione um time</option>
-                      {teams.filter(t => t.status).map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
+                      {teams
+                        .filter((t) => t.status)
+                        .map((team) => (
+                          <option key={team.id} value={team.id}>
+                            {team.name}
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>
-                <Button className="bg-primary hover:bg-primary/90 w-full" onClick={handleAddMachine} disabled={submitting}>
+                <Button
+                  className="bg-primary hover:bg-primary/90 w-full"
+                  onClick={handleAddMachine}
+                  disabled={submitting}
+                >
                   {submitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -746,13 +1004,14 @@ export default function CadastroPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-6">
-                  Clique em uma máquina para ver e gerenciar suas habilidades específicas
+                  Clique em uma máquina para ver e gerenciar suas habilidades
+                  específicas
                 </p>
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {machines.map((machine) => {
-                    const skillCount = machineSkills(machine.id).length
-                    const team = teams.find(t => t.id === machine.teamId)
+                    const skillCount = machineSkills(machine.id).length;
+                    const team = teams.find((t) => t.id === machine.teamId);
                     return (
                       <Card
                         key={machine.id}
@@ -765,14 +1024,18 @@ export default function CadastroPage() {
                               <Settings className="w-8 h-8 text-primary" />
                             </div>
                           </div>
-                          <h3 className="font-bold text-lg text-primary mb-1">{machine.name}</h3>
-                          <p className="text-xs text-muted-foreground mb-2">{team?.name}</p>
+                          <h3 className="font-bold text-lg text-primary mb-1">
+                            {machine.name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            {team?.name}
+                          </p>
                           <Badge variant="secondary" className="text-xs">
                             {skillCount} habilidades
                           </Badge>
                         </CardContent>
                       </Card>
-                    )
+                    );
                   })}
                 </div>
               </CardContent>
@@ -785,78 +1048,111 @@ export default function CadastroPage() {
               <CardHeader>
                 <CardTitle>Cadastrar Nova Habilidade</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Cada habilidade deve ser vinculada a um time e sub-time específico
+                  Cada habilidade deve ser vinculada a um time e sub-time
+                  específico
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Nome da Habilidade <span className="text-red-500">*</span></label>
+                    <label className="text-sm font-semibold">
+                      Nome da Habilidade <span className="text-red-500">*</span>
+                    </label>
                     <Input
                       value={skillForm.name}
-                      onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })}
+                      onChange={(e) =>
+                        setSkillForm({ ...skillForm, name: e.target.value })
+                      }
                       placeholder="Ex: Manutenção Preventiva"
                       className="border-primary/20"
                       disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Categoria <span className="text-red-500">*</span></label>
+                    <label className="text-sm font-semibold">
+                      Categoria <span className="text-red-500">*</span>
+                    </label>
                     <Input
                       value={skillForm.category}
-                      onChange={(e) => setSkillForm({ ...skillForm, category: e.target.value })}
+                      onChange={(e) =>
+                        setSkillForm({ ...skillForm, category: e.target.value })
+                      }
                       placeholder="Ex: Técnica"
                       className="border-primary/20"
                       disabled={submitting}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Máquina <span className="text-red-500">*</span></label>
-                    <select 
+                    <label className="text-sm font-semibold">
+                      Máquina <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={skillForm.machineId}
-                      onChange={(e) => setSkillForm({ ...skillForm, machineId: e.target.value })}
+                      onChange={(e) =>
+                        setSkillForm({
+                          ...skillForm,
+                          machineId: e.target.value,
+                        })
+                      }
                       disabled={submitting}
                     >
                       <option value="">Selecione uma máquina</option>
-                      {machines.filter(m => m.status).map((machine) => (
-                        <option key={machine.id} value={machine.id}>
-                          {machine.name} ({machine.code})
-                        </option>
-                      ))}
+                      {machines
+                        .filter((m) => m.status)
+                        .map((machine) => (
+                          <option key={machine.id} value={machine.id}>
+                            {machine.name} ({machine.code})
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Time <span className="text-red-500">*</span></label>
-                    <select 
+                    <label className="text-sm font-semibold">
+                      Time <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={skillForm.teamId}
                       onChange={(e) => {
-                        setSkillForm({ ...skillForm, teamId: e.target.value, subtimeId: "" })
+                        setSkillForm({
+                          ...skillForm,
+                          teamId: e.target.value,
+                          subtimeId: "",
+                        });
                       }}
                       disabled={submitting}
                     >
                       <option value="">Selecione um time</option>
-                      {teams.filter(t => t.status).map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
+                      {teams
+                        .filter((t) => t.status)
+                        .map((team) => (
+                          <option key={team.id} value={team.id}>
+                            {team.name}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold">Sub-time <span className="text-red-500">*</span></label>
-                    <select 
+                    <label className="text-sm font-semibold">
+                      Sub-time <span className="text-red-500">*</span>
+                    </label>
+                    <select
                       className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground h-10"
                       value={skillForm.subtimeId}
-                      onChange={(e) => setSkillForm({ ...skillForm, subtimeId: e.target.value })}
+                      onChange={(e) =>
+                        setSkillForm({
+                          ...skillForm,
+                          subtimeId: e.target.value,
+                        })
+                      }
                       disabled={!skillForm.teamId || submitting}
                     >
                       <option value="">Selecione um sub-time</option>
                       {subtimes
-                        .filter(st => st.parentTeamId === skillForm.teamId)
+                        .filter((st) => st.parentTeamId === skillForm.teamId)
                         .map((subtime) => (
                           <option key={subtime.id} value={subtime.id}>
                             {subtime.name}
@@ -865,7 +1161,11 @@ export default function CadastroPage() {
                     </select>
                   </div>
                 </div>
-                <Button className="bg-primary hover:bg-primary/90 w-full" onClick={handleAddSkill} disabled={submitting}>
+                <Button
+                  className="bg-primary hover:bg-primary/90 w-full"
+                  onClick={handleAddSkill}
+                  disabled={submitting}
+                >
                   {submitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -885,7 +1185,10 @@ export default function CadastroPage() {
       </div>
 
       {/* Machine Skills Modal */}
-      <Dialog open={selectedMachine !== null} onOpenChange={() => setSelectedMachine(null)}>
+      <Dialog
+        open={selectedMachine !== null}
+        onOpenChange={() => setSelectedMachine(null)}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl text-primary">
@@ -905,7 +1208,9 @@ export default function CadastroPage() {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold text-primary">{skill.name}</h4>
+                      <h4 className="font-semibold text-primary">
+                        {skill.name}
+                      </h4>
                       <Badge variant="secondary" className="mt-2 text-xs">
                         {skill.category}
                       </Badge>
@@ -921,6 +1226,133 @@ export default function CadastroPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog para criar novo sub-time */}
+      <Dialog open={subtimeDialogOpen} onOpenChange={setSubtimeDialogOpen}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Criar Novo Sub-time</DialogTitle>
+            <DialogDescription>
+              Crie um novo sub-time para organizar melhor seus colaboradores
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {/* Campo Nome do Sub-time */}
+            <div className="grid gap-2">
+              <Label htmlFor="subtimeName">Nome do Sub-time *</Label>
+              <Input
+                id="subtimeName"
+                placeholder="Ex: Linha de Produção 1"
+                value={newSubtimeForm.name}
+                onChange={(e) =>
+                  setNewSubtimeForm({ ...newSubtimeForm, name: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Campo Descrição */}
+            <div className="grid gap-2">
+              <Label htmlFor="subtimeDescription">Descrição *</Label>
+              <Textarea
+                id="subtimeDescription"
+                placeholder="Descreva as responsabilidades do sub-time..."
+                value={newSubtimeForm.description}
+                onChange={(e) =>
+                  setNewSubtimeForm({
+                    ...newSubtimeForm,
+                    description: e.target.value,
+                  })
+                }
+                rows={3}
+              />
+            </div>
+
+            {/* Campo Time */}
+            <div className="grid gap-2">
+              <Label htmlFor="subtimeTeam">Time *</Label>
+              <select
+                className="w-full border border-input rounded-md p-2 bg-card h-10"
+                id="subtimeTeam"
+                value={newSubtimeForm.teamId}
+                onChange={(e) =>
+                  setNewSubtimeForm({
+                    ...newSubtimeForm,
+                    teamId: e.target.value,
+                  })
+                }
+                disabled
+              >
+                <option value={colaboradorForm.teamId}>
+                  {teams.find((t) => t.id === colaboradorForm.teamId)?.name ||
+                    "Time selecionado"}
+                </option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                O sub-time será vinculado ao time atualmente selecionado
+              </p>
+            </div>
+
+            {/* Campo Coordenador (apenas para Supervisor) */}
+            {isSupervisor && (
+              <div className="grid gap-2">
+                <Label htmlFor="subtimeCoordenador">Coordenador (Líder)</Label>
+                <select
+                  className="w-full border border-input rounded-md p-2 bg-card h-10"
+                  id="subtimeCoordenador"
+                  value={newSubtimeForm.coordenadorId}
+                  onChange={(e) =>
+                    setNewSubtimeForm({
+                      ...newSubtimeForm,
+                      coordenadorId: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Selecione um coordenador (opcional)</option>
+                  <option value={colaboradorForm.id}>
+                    {colaboradorForm.name} (próprio colaborador)
+                  </option>
+                  {tecnicos
+                    .filter(
+                      (t: any) =>
+                        t.id !== colaboradorForm.id &&
+                        (t.senioridade === "Coordenador" ||
+                          t.senioridade === "Supervisor" ||
+                          t.cargo?.toLowerCase().includes("coordenador") ||
+                          t.cargo?.toLowerCase().includes("supervisor")),
+                    )
+                    .map((coord: any) => (
+                      <option key={coord.id} value={coord.id}>
+                        {coord.name} ({coord.cargo || coord.senioridade})
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Selecione um coordenador para liderar este sub-time
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSubtimeDialogOpen(false)}
+              disabled={creatingSubtime}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateSubtime} disabled={creatingSubtime}>
+              {creatingSubtime ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                "Criar Sub-time"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
-  )
+  );
 }

@@ -93,6 +93,36 @@ class AuthService {
   }
 
   /**
+   * Solicita reset da senha (esqueci minha senha)
+   */
+  async forgotPassword(email: string): Promise<{ message: string; temporaryPassword?: string }> {
+    try {
+      const response = await apiClient.post<{ message: string; temporaryPassword?: string }>(
+        `${API_ENDPOINTS.USERS}/forgot-password`,
+        { email }
+      )
+      return response.data
+    } catch (error: any) {
+      throw this.handleError(error)
+    }
+  }
+
+  /**
+   * Reset de senha com nova senha
+   */
+  async resetPassword(email: string, newPassword: string): Promise<{ message: string }> {
+    try {
+      const response = await apiClient.post<{ message: string }>(
+        `${API_ENDPOINTS.USERS}/reset-password`,
+        { email, newPassword }
+      )
+      return response.data
+    } catch (error: any) {
+      throw this.handleError(error)
+    }
+  }
+
+  /**
    * Verifica se usuário está autenticado
    * @returns true se houver token de acesso
    */

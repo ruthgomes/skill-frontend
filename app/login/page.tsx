@@ -10,6 +10,7 @@ import { Input } from "@/shared/components/ui/input"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { AlertCircle } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -111,6 +112,14 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   className="h-10 text-sm border-gray-300 focus:border-[#005486] focus:ring-[#005486]"
                 />
+                <div className="text-right">
+                  <Link 
+                    href="/forgot-password" 
+                    className="text-xs text-[#005486] hover:text-[#0096d6] transition-colors"
+                  >
+                    Esqueci minha senha
+                  </Link>
+                </div>
               </div>
 
               {error && (

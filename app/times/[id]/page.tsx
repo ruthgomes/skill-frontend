@@ -109,16 +109,31 @@ export default function TeamDetailPage() {
   }, [teamId])
 
   // Buscar coordenadores disponíveis
-  const availableCoordinators = useMemo(() => {
-    // Filtrar por position que contenha "Coordenador" ou similar, ou por senioridade
-    return tecnicos.filter((t) => 
+const availableCoordinators = useMemo(() => {
+  // Busca técnicos que podem ser coordenadores (líderes)
+  return tecnicos.filter((t) => 
+    t.status === true && // Apenas ativos
+    (
+      // Pela senioridade
       t.senioridade === "Coordenador" ||
       t.senioridade === "Supervisor" ||
+      // Pelo cargo (pode ser qualquer variação)
+      t.cargo?.toLowerCase().includes("coordenador") || 
+      t.cargo?.toLowerCase().includes("coordenadora") ||
+      t.cargo?.toLowerCase().includes("líder") ||
+      t.cargo?.toLowerCase().includes("lider") ||
+      t.cargo?.toLowerCase().includes("supervisor") ||
+      t.cargo?.toLowerCase().includes("supervisora") ||
+      // Pela posição (campo position, se existir)
       t.position?.toLowerCase().includes("coordenador") || 
+      t.position?.toLowerCase().includes("coordenadora") ||
       t.position?.toLowerCase().includes("líder") ||
-      t.position?.toLowerCase().includes("supervisor")
+      t.position?.toLowerCase().includes("lider") ||
+      t.position?.toLowerCase().includes("supervisor") ||
+      t.position?.toLowerCase().includes("supervisora")
     )
-  }, [tecnicos])
+  )
+}, [tecnicos])
 
   // Loading state
   if (loading) {

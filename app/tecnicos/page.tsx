@@ -10,19 +10,29 @@ import { Input } from "@/shared/components/ui/input"
 import { Badge } from "@/shared/components/ui/badge"
 import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 import { Button } from "@/shared/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/components/ui/dropdown-menu"
 import { useState, useEffect } from "react"
-import { Search, Loader2, AlertCircle } from "lucide-react"
+import { Search, Loader2, AlertCircle, MoreVertical, Edit, Trash2, Eye } from "lucide-react"
 import { fetchAllPaginated } from "@/core/utils/pagination.utils"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
+import { useOwnershipFilter } from "@/core/hooks/use-ownership-filter"
 
 export default function TecnicosPage() {
-  const { user, isSupervisor, isAdmin } = useAuth()
-  const { error: showError } = useNotification()
+  const { user, isAdmin } = useAuth()
+  const { success, error: showError } = useNotification()
+  const { canEdit, canDelete, filterOwned } = useOwnershipFilter()
+
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [senioridadeFilter, setSenioridadeFilter] = useState<string>("todas")
   const [tecnicos, setTecnicos] = useState<Tecnico[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Dialog states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [tecnicoToDelete, setTecnicoToDelete] = useState<Tecnico | null>(null)
 
   useEffect(() => {
     if (!user || user.role !== "master") {
@@ -38,13 +48,11 @@ export default function TecnicosPage() {
       setError(null)
       console.log('🔄 Carregando técnicos...')
       
-      // ✅ Buscar todos os técnicos (múltiplas páginas automaticamente)
       const allTecnicos = await fetchAllPaginated(
         (page, limit) => tecnicosService.findAll({ page, limit })
       )
       
       setTecnicos(allTecnicos)
-      console.log('✅ Técnicos carregados:', allTecnicos.length)
     } catch (err) {
       console.error('❌ Erro ao carregar técnicos:', err)
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar técnicos'
@@ -55,43 +63,75 @@ export default function TecnicosPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!tecnicoToDelete) return
+
+    try {
+      setSubmitting(true)
+      await tecnicosService.remove(tecnicoToDelete.id)
+      success('Técnico excluído com sucesso!')
+      await fetchTecnicos()
+      handleCloseDeleteDialog()
+    } catch (err) {
+      console.error('Erro ao deletar técnico:', err)
+      showError(err instanceof Error ? err.message : 'Erro ao deletar técnico')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleOpenDeleteDialog = (tecnico: Tecnico) => {
+    const tecnicoWithCreatedById = {
+      ...tecnico,
+      createdById: (tecnico as any).createdById ?? null
+    }
+    if (!canDelete(tecnicoWithCreatedById)) {
+      showError("Você não tem permissão para excluir este colaborador")
+      return
+    }
+    setTecnicoToDelete(tecnico)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false)
+    setTecnicoToDelete(null)
+  }
+
+  const handleView = (id: string) => {
+    router.push(`/tecnicos/${id}`)
+  }
+
   if (!user || user.role !== "master") {
     return null
   }
 
-  const filteredTecnicos = tecnicos.filter((op) => {
+  const filteredTecnicos = tecnicos.filter((tecnico) => {
     const matchesSearch =
-      op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (op.workday || '').toLowerCase().includes(searchTerm.toLowerCase())
+      tecnico.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (tecnico.workday || '').toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesSenioridade = 
-      senioridadeFilter === "todas" || op.senioridade === senioridadeFilter
+      senioridadeFilter === "todas" || tecnico.senioridade === senioridadeFilter
     
     return matchesSearch && matchesSenioridade
   })
 
-  // Count skills if available
   const getSkillCount = (tecnico: Tecnico) => {
     return tecnico.tecnicoSkills?.length || 0
   }
 
-  return (
-    <AppLayout>
-      <div className="space-y-6 p-8">
-        <div>
-          <h1 className="text-4xl font-bold text-primary">
-            {isSupervisor ? "Meus Colaboradores" : "Colaboradores"}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            {isSupervisor 
-              ? "Gerenciamento dos colaboradores dos seus times" 
-              : "Gerenciamento de colaboradores do sistema"
-            }
-          </p>
-        </div>
+  const visibleTecnicos = filterOwned(
+    tecnicos.map(tecnico => ({
+      ...tecnico,
+      createdById: (tecnico as any).createdById ?? null
+    }))
+  )
 
-        {/* Error State */}
-        {error && (
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="p-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
@@ -101,7 +141,25 @@ export default function TecnicosPage() {
               </Button>
             </AlertDescription>
           </Alert>
-        )}
+        </div>
+      </AppLayout>
+    )
+  }
+  
+  return (
+    <AppLayout>
+      <div className="space-y-6 p-8">
+        <div>
+          <h1 className="text-4xl font-bold text-primary">
+            {isAdmin ? "Colaboradores" : "Meus Colaboradores"}
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            {isAdmin 
+              ? "Gerenciamento de colaboradores do sistema"
+              : "Gerenciamento dos colaboradores dos seus times" 
+            }
+          </p>
+        </div>
 
         {/* Search Bar */}
         <Card className="border-primary/10">
@@ -150,60 +208,104 @@ export default function TecnicosPage() {
         {!loading && !error && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTecnicos.map((op) => (
-                <Card
-                  key={op.id}
-                  className="border-primary/10 hover:border-primary/30 transition-colors cursor-pointer hover:shadow-lg"
-                  onClick={() => router.push(`/tecnicos/${op.id}`)}
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{op.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground mt-1">{op.workday || 'N/A'}</p>
-                      </div>
-                      <div className="flex gap-2 flex-wrap justify-end">
-                        <Badge variant={op.status ? "default" : "secondary"}>
-                          {op.status ? "Ativo" : "Inativo"}
-                        </Badge>
-                        {op.hasUserAccount && (
-                          <Badge className="bg-purple-600 text-white hover:bg-purple-700">
-                            👤 Supervisor
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Cargo</p>
-                        <p className="font-semibold text-foreground">{op.cargo || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Senioridade</p>
-                        <p className="font-semibold text-foreground">{op.senioridade || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Turno</p>
-                        <p className="font-semibold text-foreground">{op.shift || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Área</p>
-                        <p className="font-semibold text-foreground">{op.area || 'N/A'}</p>
-                      </div>
-                    </div>
+              {visibleTecnicos.map((tecnico) => {
+                const canEditTecnico = canEdit(tecnico)
+                const canDeleteTecnico = canDelete(tecnico)
+                return (
+                  <Card
+                    key={tecnico.id}
+                    className="border-primary/10 hover:border-primary/30 transition-colors hover:shadow-lg group"
+                  >
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        {/* Nome e Workday - Layout original sem Avatar */}
+                        <div 
+                          className="flex-1 cursor-pointer"
+                          onClick={() => router.push(`/tecnicos/${tecnico.id}`)}
+                        >
+                          <CardTitle className="text-lg">{tecnico.name}</CardTitle>
+                          <p className="text-sm text-muted-foreground mt-1">{tecnico.workday || 'N/A'}</p>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-2 flex-wrap">
+                            <Badge variant={tecnico.status ? "default" : "secondary"}>
+                              {tecnico.status ? "Ativo" : "Inativo"}
+                            </Badge>
+                            {tecnico.hasUserAccount && (
+                              <Badge className="bg-purple-600 text-white hover:bg-purple-700">
+                                👤 Supervisor
+                              </Badge>
+                            )}
+                          </div>
 
-                    <div className="pt-2 border-t border-primary/10">
-                      <p className="text-sm text-muted-foreground mb-2">Habilidades</p>
-                      <p className="text-sm font-semibold text-foreground">{getSkillCount(op)} habilidades</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                          {(canEditTecnico || canDeleteTecnico) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleView(tecnico.id)}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Ver Detalhes
+                                </DropdownMenuItem>
+                                {canEditTecnico && (
+                                  <DropdownMenuItem onClick={() => router.push(`/tecnicos/${tecnico.id}/edit`)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                )}
+                                {canDeleteTecnico && (
+                                  <DropdownMenuItem 
+                                    onClick={() => handleOpenDeleteDialog(tecnico)} 
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent 
+                      className="space-y-4 cursor-pointer"
+                      onClick={() => router.push(`/tecnicos/${tecnico.id}`)}
+                    >
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Cargo</p>
+                          <p className="font-semibold text-foreground">{tecnico.cargo || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Senioridade</p>
+                          <p className="font-semibold text-foreground">{tecnico.senioridade || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Turno</p>
+                          <p className="font-semibold text-foreground">{tecnico.shift || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Área</p>
+                          <p className="font-semibold text-foreground">{tecnico.area || 'N/A'}</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-primary/10">
+                        <p className="text-sm text-muted-foreground mb-2">Habilidades</p>
+                        <p className="text-sm font-semibold text-foreground">{getSkillCount(tecnico)} habilidades</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
 
-            {filteredTecnicos.length === 0 && (
+            {visibleTecnicos.length === 0 && (
               <Card className="border-primary/10">
                 <CardContent className="pt-6 text-center">
                   <p className="text-muted-foreground">
@@ -217,6 +319,38 @@ export default function TecnicosPage() {
           </>
         )}
       </div>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Confirmar exclusão</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir o colaborador "{tecnicoToDelete?.name}"?
+              {tecnicoToDelete?.hasUserAccount && (
+                <span className="block mt-2 text-red-600 font-medium">
+                  Atenção: Este colaborador possui uma conta de supervisor. A exclusão também removerá o acesso à conta.
+                </span>
+              )}
+              Esta ação não poderá ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseDeleteDialog} disabled={submitting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   )
 }

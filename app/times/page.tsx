@@ -1,31 +1,16 @@
 "use client"
 
+import { useAuth, useNotification } from "@/core/contexts"
+import { useOwnershipFilter } from "@/core/hooks/use-ownership-filter"
+import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Plus, Users, Edit, Trash2, MoreVertical, ChevronRight, Loader2, AlertCircle } from "lucide-react"
 import { AppLayout } from "@/shared/components/layout"
 import { Button } from "@/shared/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/shared/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { Badge } from "@/shared/components/ui/badge"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
@@ -33,12 +18,13 @@ import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 import { teamsService, subtimesService, usersService } from "@/core/services"
 import type { Team, SubTeam, User } from "@/core/types"
 import Link from "next/link"
-import { useAuth, useNotification } from "@/core/contexts"
 import { fetchAllPaginated } from "@/core/utils/pagination.utils"
 
 export default function TimesPage() {
-  const { isSupervisor, isAdmin } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { success, error: showError } = useNotification()
+  const { canEdit, canDelete, filterOwned } = useOwnershipFilter()
+  const router = useRouter()
   
   // Estados para dados do backend
   const [teams, setTeams] = useState<Team[]>([])
@@ -68,19 +54,12 @@ export default function TimesPage() {
     try {
       setLoading(true)
       setError(null)
-      console.log('🔄 Buscando times, subtimes e usuários...')
       
       const [teamsData, subtimesData, allUsers] = await Promise.all([
         teamsService.findAll(),
         subtimesService.findAll(),
         fetchAllPaginated((page, limit) => usersService.findAll({ page, limit })),
       ])
-      
-      console.log('✅ Dados carregados:', {
-        teams: teamsData.length,
-        subtimes: subtimesData.length,
-        users: allUsers.length,
-      })
       
       setTeams(teamsData)
       setSubtimes(subtimesData)
@@ -99,7 +78,6 @@ export default function TimesPage() {
   }
 
   const handleCreateOrUpdate = async () => {
-    // Validação
     if (!formData.name || !formData.supervisorId) {
       showError('Preencha todos os campos obrigatórios (Nome e Supervisor)!');
       return;
@@ -109,17 +87,15 @@ export default function TimesPage() {
       setSubmitting(true)
       
       if (editingTeam) {
-        // Atualizar time existente
-        console.log('🔄 Atualizando time...')
+        if (!canEdit({ createdById: (editingTeam as any).createdById })) {
+          showError("Você não tem permissão para editar este time.")
+          return
+        }
         await teamsService.update(editingTeam.id, formData)
         success('Time atualizado com sucesso!')
-        console.log('✅ Time atualizado')
       } else {
-        // Criar novo time
-        console.log('🔄 Criando novo time...', formData)
         await teamsService.create(formData)
         success('Time criado com sucesso!')
-        console.log('✅ Time criado')
       }
       
       // Recarrega dados
@@ -134,6 +110,10 @@ export default function TimesPage() {
   }
 
   const handleEdit = (team: Team) => {
+    if (!canEdit({ createdById: (team as any).createdById })) {
+      showError("Você não tem permissão para editar este time.")
+      return
+    }
     setEditingTeam(team)
     setFormData({
       name: team.name,
@@ -145,15 +125,18 @@ export default function TimesPage() {
     setDialogOpen(true)
   }
 
-  const handleDelete = async (teamId: string) => {
+  const handleDelete = async (team: Team) => {
+    if (!canDelete({ createdById: (team as any).createdById })) {
+      showError("Você não tem permissão para excluir este time.")
+      return
+    }
+
     if (!confirm("Tem certeza que deseja excluir este time?")) return
     
     try {
       setSubmitting(true)
-      console.log('🔄 Deletando time...')
-      await teamsService.remove(teamId)
+      await teamsService.remove(team.id)
       success('Time excluído com sucesso!')
-      console.log('✅ Time deletado')
       
       // Recarrega dados
       await fetchAllData()
@@ -185,6 +168,10 @@ export default function TimesPage() {
     const teamSubtimes = subtimes.filter((st) => st.parentTeamId === teamId)
     return teamSubtimes.reduce((acc, st) => acc + (st.tecnicos?.length || 0), 0)
   }
+
+  const visibleTeams = filterOwned(
+    teams.map(team => ({ ...team, createdById: (team as any).createdById }))
+  )
 
   // Loading state
   if (loading) {
@@ -223,12 +210,12 @@ export default function TimesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              {isSupervisor ? "Meus Times" : "Gerenciamento de Times"}
+              {isAdmin ? "Gerenciamento de Times" : "Meus Times"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isSupervisor 
-                ? "Gerencie seus times e sub-times" 
-                : "Gerencie todos os times e sub-times da engenharia"
+              {isAdmin 
+                ? "Gerencia todos os times" 
+                : "Apenas times que você criou aparecem aqui"
               }
             </p>
           </div>
@@ -239,10 +226,13 @@ export default function TimesPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {teams.map((team) => (
-            <Card key={team.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
+          {visibleTeams.map((team) => {
+            const canEditTeam = canEdit(team)
+            const canDeleteTeam = canDelete(team)
+            return (
+              <Card key={team.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
                     <div
                       className="w-3 h-3 rounded-full"
@@ -255,26 +245,33 @@ export default function TimesPage() {
                       </CardDescription>
                     </div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
+
+                  {(canEditTeam || canDeleteTeam) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {canEditTeam && (
                       <DropdownMenuItem onClick={() => handleEdit(team)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
+                      )}
+                      {canDeleteTeam && (
                       <DropdownMenuItem
-                        onClick={() => handleDelete(team.id)}
+                        onClick={() => handleDelete(team)}
                         className="text-red-600"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Excluir
                       </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -305,15 +302,21 @@ export default function TimesPage() {
                 </Link>
               </CardContent>
             </Card>
-          ))}
+          )
+        })}
         </div>
 
-        {teams.length === 0 && (
+        {visibleTeams.length === 0 && (
           <Card className="p-12 text-center">
             <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum time cadastrado</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              {isAdmin ? "Nenhum time cadastrado" : "Você ainda não criou nenhum time"}
+            </h3>
             <p className="text-muted-foreground mb-4">
-              Comece criando seu primeiro time de engenharia
+              {isAdmin
+                ? "Comece criando um time para organizar sua estrutura organizacional"
+                : "Clique no botão acima para criar seu primeiro time e começar a organizar sua estrutura organizacional"
+              }
             </p>
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -331,7 +334,7 @@ export default function TimesPage() {
             <DialogDescription>
               {editingTeam
                 ? "Atualize as informações do time"
-                : "Adicione um novo time à sua estrutura de engenharia"}
+                : "Adicione um novo time à sua estrutura organizacional"}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
