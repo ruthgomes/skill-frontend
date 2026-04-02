@@ -487,9 +487,9 @@ const availableCoordinators = useMemo(() => {
                                 Membros do Sub-time:
                               </h4>
                               <div className="flex flex-wrap gap-2">
-                                {getMemberNames(subTeam.tecnicos).map((name) => (
-                                  <Badge key={name} variant="outline">
-                                    {name}
+                                {subTeam.tecnicos?.map((tecnico) => (
+                                  <Badge key={tecnico.id} variant="outline">
+                                    {tecnico.name}
                                   </Badge>
                                 ))}
                               </div>

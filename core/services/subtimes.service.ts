@@ -1,6 +1,5 @@
 /**
  * SubTimes Service - Serviço de gerenciamento de sub-times
- * Baseado em: docs/integration/SUBTIMES_INTEGRATION.md
  */
 
 import apiClient from './api-client'

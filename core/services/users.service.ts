@@ -1,6 +1,5 @@
 /**
  * Users Service - Serviço de gerenciamento de usuários
- * Baseado em: docs/integration/USERS_INTEGRATION.md
  */
 
 import apiClient from './api-client'

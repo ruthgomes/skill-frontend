@@ -3,11 +3,7 @@
  * Baseado em: docs/integration/AUTH_INTEGRATION.md
  */
 
-import apiClient, {
-  setAccessToken,
-  setRefreshToken,
-  clearTokens,
-} from './api-client'
+import apiClient from './api-client'
 import { API_ENDPOINTS } from '@/core/constants/app.constants'
 import type {
   LoginRequest,
@@ -30,10 +26,6 @@ class AuthService {
         credentials
       )
 
-      // Salva tokens no localStorage
-      setAccessToken(data.accessToken)
-      setRefreshToken(data.refreshToken)
-
       return data
     } catch (error: any) {
       throw this.handleError(error)
@@ -42,21 +34,12 @@ class AuthService {
 
   /**
    * Renova o access token usando refresh token
-   * @param refreshToken - Token de atualização
-   * @returns Novos tokens e dados do usuário
    */
-  async refreshToken(
-    request: RefreshTokenRequest
-  ): Promise<RefreshTokenResponse> {
+  async refreshToken(): Promise<RefreshTokenResponse> {
     try {
       const { data } = await apiClient.post<RefreshTokenResponse>(
-        API_ENDPOINTS.AUTH.REFRESH,
-        request
+        API_ENDPOINTS.AUTH.REFRESH
       )
-
-      // Atualiza tokens no localStorage
-      setAccessToken(data.accessToken)
-      setRefreshToken(data.refreshToken)
 
       return data
     } catch (error: any) {
@@ -84,11 +67,7 @@ class AuthService {
     try {
       await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT)
     } catch (error) {
-      // Ignora erros de logout no backend
       console.error('Erro ao fazer logout:', error)
-    } finally {
-      // Sempre limpa tokens locais
-      clearTokens()
     }
   }
 
@@ -124,12 +103,11 @@ class AuthService {
 
   /**
    * Verifica se usuário está autenticado
-   * @returns true se houver token de acesso
+   * Nota: Esta verificação é simplificada.
+   * Para verificação real, use o endpoint /auth/me
    */
   isAuthenticated(): boolean {
-    if (typeof window === 'undefined') return false
-    const token = localStorage.getItem('accessToken')
-    return !!token
+    return true
   }
 
   /**

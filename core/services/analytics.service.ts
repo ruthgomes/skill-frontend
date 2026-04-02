@@ -1,6 +1,5 @@
 /**
  * Analytics Service - Serviço de analytics e dashboards
- * Baseado em: docs/integration/ANALYTICS_INTEGRATION.md
  */
 
 import apiClient from './api-client'
@@ -16,6 +15,7 @@ import type {
   SkillGapsResponse,
   ShiftSkillComparison,
   ShiftMachineComparison,
+  ShiftPerformanceData,
 } from '@/core/types'
 
 class AnalyticsService {
@@ -190,6 +190,25 @@ class AnalyticsService {
       const response = await apiClient.get<ShiftMachineComparison[]>(
         `${API_ENDPOINTS.ANALYTICS}/machines-by-shift`,
         { params: { teamId, quarter, year } }
+      )
+      return response.data
+    } catch (error: any) {
+      throw this.handleError(error)
+    }
+  }
+
+  /**
+   * Busca dados de desempenho por turno ao longo do tempo
+   * Usado para o gráfico "Pontuação Anual por Turno"
+   */
+  async getShiftPerformance(
+    year?: number,
+    quarter?: number
+  ): Promise<ShiftPerformanceData[]> {
+    try {
+      const response = await apiClient.get<ShiftPerformanceData[]>(
+        `${API_ENDPOINTS.ANALYTICS}/shift-performance`,
+        { params: { year, quarter } }
       )
       return response.data
     } catch (error: any) {

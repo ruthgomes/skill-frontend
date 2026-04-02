@@ -1,6 +1,5 @@
 /**
  * Skills Service - Serviço de gerenciamento de skills (competências)
- * Baseado em: docs/integration/SKILLS_INTEGRATION.md
  */
 
 import apiClient from './api-client'

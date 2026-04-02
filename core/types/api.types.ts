@@ -608,6 +608,20 @@ export interface ShiftMachineComparison {
   bestShift: '1T' | '2T' | '3T' | 'ADM'
 }
 
+/**
+ * Dados de desempenho por turno ao longo do tempo
+ * Usado para o gráfico "Pontuação Anual por Turno"
+ */
+export interface ShiftPerformanceData {
+  month: string           // Nome do mês (Jan, Fev, Mar, ...)
+  monthNumber: number     // Número do mês (1-12)
+  '1T': number           // Pontuação média do 1º Turno (0-100)
+  '2T': number           // Pontuação média do 2º Turno (0-100)
+  '3T': number           // Pontuação média do 3º Turno (0-100)
+  'ADM': number          // Pontuação média do Turno Administrativo (0-100)
+  'Especial'?: number    // Pontuação média de turnos especiais (opcional)
+}
+
 // ============================================
 // PAGINAÇÃO
 // ============================================

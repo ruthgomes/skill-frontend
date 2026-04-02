@@ -1,6 +1,5 @@
 /**
  * Tecnicos Service - Serviço de gerenciamento de técnicos
- * Baseado em: docs/integration/TECNICOS_INTEGRATION.md
  */
 
 import apiClient from './api-client'
@@ -35,13 +34,10 @@ class TecnicosService {
   async createWithPhoto(data: CreateTecnicoRequest, photoFile?: File): Promise<Tecnico> {
     try {
       const formData = new FormData()
-      
-      // Adicionar foto se fornecida
       if (photoFile) {
         formData.append('photo', photoFile)
       }
       
-      // Adicionar todos os campos do técnico
       Object.entries(data).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           formData.append(key, String(value))

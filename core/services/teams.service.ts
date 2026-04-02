@@ -1,6 +1,5 @@
 /**
  * Teams Service - Serviço de gerenciamento de times
- * Baseado em: docs/integration/TEAMS_INTEGRATION.md
  */
 
 import apiClient from './api-client'

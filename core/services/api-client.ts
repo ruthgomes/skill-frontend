@@ -6,14 +6,13 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { API_CONFIG } from '@/core/constants/app.constants'
 
-// Cria instância do axios
 const apiClient: AxiosInstance = axios.create({
-  baseURL: `${API_CONFIG.baseURL}${API_CONFIG.apiPrefix}`,
+  baseURL: '/api',
   timeout: API_CONFIG.timeout,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: API_CONFIG.withCredentials,
+  withCredentials: true,
 })
 
 // ============================================
@@ -22,11 +21,6 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Adiciona token de autenticação se existir
-    const token = getAccessToken()
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
     return config
   },
   (error: AxiosError) => {
@@ -91,34 +85,16 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true
       isRefreshing = true
 
-      const refreshToken = getRefreshToken()
-
-      if (!refreshToken) {
-        // Sem refresh token, redireciona para login
-        handleAuthError()
-        return Promise.reject(error)
-      }
-
       try {
-        // Tenta renovar o token
-        const { data } = await axios.post(
-          `${API_CONFIG.baseURL}${API_CONFIG.apiPrefix}/auth/refresh`,
-          { refreshToken }
-        )
-
-        const { accessToken, refreshToken: newRefreshToken } = data
-
-        // Salva novos tokens
-        setAccessToken(accessToken)
-        setRefreshToken(newRefreshToken)
+        // Tenta renovar o token através da rota de API proxy
+        await axios.post('/api/auth/refresh', {}, {
+          withCredentials: true,  // Garante envio de cookies
+        })
 
         // Processa fila de requisições pendentes
-        processQueue(null, accessToken)
+        processQueue(null, null)
 
         // Retenta requisição original
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`
-        }
         return apiClient(originalRequest)
       } catch (refreshError) {
         // Falha ao renovar token, loga usuário
@@ -135,39 +111,12 @@ apiClient.interceptors.response.use(
 )
 
 // ============================================
-// FUNÇÕES AUXILIARES DE TOKEN
+// FUNÇÕES AUXILIARES
 // ============================================
 
-function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('accessToken')
-}
-
-function getRefreshToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('refreshToken')
-}
-
-function setAccessToken(token: string): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem('accessToken', token)
-}
-
-function setRefreshToken(token: string): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem('refreshToken', token)
-}
-
-function clearTokens(): void {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-}
-
 function handleAuthError(): void {
-  clearTokens()
   if (typeof window !== 'undefined') {
-    // Redireciona para login (pode ser ajustado conforme necessidade)
+    // Redireciona para login
     window.location.href = '/login'
   }
 }
@@ -178,11 +127,4 @@ function handleAuthError(): void {
 
 export default apiClient
 
-export {
-  getAccessToken,
-  getRefreshToken,
-  setAccessToken,
-  setRefreshToken,
-  clearTokens,
-  handleAuthError,
-}
+export { handleAuthError }

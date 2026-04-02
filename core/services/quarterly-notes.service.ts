@@ -1,6 +1,5 @@
 /**
  * Quarterly Notes Service - Serviço de gerenciamento de notas trimestrais
- * Baseado em: docs/integration/QUARTERLY_NOTES_INTEGRATION.md
  */
 
 import apiClient from './api-client'

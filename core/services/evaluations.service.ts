@@ -1,6 +1,5 @@
 /**
  * Evaluations Service - Serviço de gerenciamento de avaliações
- * Baseado em: docs/integration/AVALIACOES_INTEGRATION.md
  */
 
 import apiClient from './api-client'

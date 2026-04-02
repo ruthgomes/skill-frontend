@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { AppLayout } from "@/shared/components/layout"
 import { analyticsService } from "@/core/services"
-import type { DashboardMetrics } from "@/core/types"
+import type { DashboardMetrics, ShiftPerformanceData } from "@/core/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { Loader2, AlertCircle } from "lucide-react"
@@ -18,6 +18,8 @@ export default function DashboardPage() {
   
   // Estados para dados do dashboard
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
+  const [shiftPerformance, setShiftPerformance] = useState<ShiftPerformanceData[]>([])
+  const [shiftPerformanceStatus, setShiftPerformanceStatus] = useState<'loading' | 'success' | 'empty' | 'error' | 'not-implemented'>('loading')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,6 +45,58 @@ export default function DashboardPage() {
         
         console.log('✅ Métricas carregadas:', data)
         setMetrics(data)
+
+        // Buscar dados de performance por turno
+        const currentYear = new Date().getFullYear()
+        console.log('🔄 Buscando dados de shift performance...', { year: currentYear })
+        
+        try {
+          const performanceData = await analyticsService.getShiftPerformance(currentYear)
+          console.log('📊 Resposta da API shift-performance:', {
+            type: typeof performanceData,
+            isArray: Array.isArray(performanceData),
+            length: Array.isArray(performanceData) ? performanceData.length : 'N/A',
+            data: performanceData
+          })
+          
+          if (Array.isArray(performanceData) && performanceData.length > 0) {
+            console.log('✅ Shift performance carregado com sucesso:', performanceData.length, 'meses')
+            setShiftPerformance(performanceData)
+            setShiftPerformanceStatus('success')
+          } else {
+            console.warn('⚠️ API retornou array vazio - sem avaliações no período')
+            setShiftPerformance([])
+            setShiftPerformanceStatus('empty')
+          }
+        } catch (perfErr: any) {
+          // Extrair status HTTP do erro Axios
+          const status = perfErr?.response?.status
+          const errorData = perfErr?.response?.data
+          const errorMessage = perfErr?.message || 'Erro desconhecido'
+          
+          console.error('❌ Erro ao buscar shift-performance:', {
+            status,
+            message: errorMessage,
+            data: errorData,
+            fullError: perfErr
+          })
+          
+          if (status === 404) {
+            console.warn('⚠️ Endpoint não encontrado (404) - aguardando implementação backend')
+            setShiftPerformanceStatus('not-implemented')
+          } else if (status === 501) {
+            console.warn('⚠️ Endpoint não implementado (501) - aguardando implementação backend')
+            setShiftPerformanceStatus('not-implemented')
+          } else if (!status || status >= 500) {
+            console.error('❌ Erro de servidor ou conexão')
+            setShiftPerformanceStatus('error')
+          } else {
+            console.error('❌ Erro inesperado na API')
+            setShiftPerformanceStatus('error')
+          }
+          
+          setShiftPerformance([]) // Vai usar fallback mockado no render
+        }
       } catch (err) {
         console.error('❌ Erro ao buscar métricas:', err)
         setError(err instanceof Error ? err.message : 'Erro ao carregar dashboard')
@@ -116,85 +170,40 @@ export default function DashboardPage() {
     'ADM': metrics?.tecnicosByShift?.find(s => s.shift === 'ADM')?.count || 0,
   }
 
-  // Dados do gráfico de pontuação por turno (mockado pois backend não tem ainda)
-  // Mantemos os dados mockados pois é um gráfico de tendência que pode ser implementado depois
-  const shiftScoreData = [
-    {
-      shift: "1º Turno",
-      jan: 85,
-      fev: 87,
-      mar: 88,
-      abr: 90,
-      mai: 89,
-      jun: 91,
-      jul: 92,
-      ago: 90,
-      set: 93,
-      out: 94,
-      nov: 92,
-      dez: 95,
-    },
-    {
-      shift: "2º Turno",
-      jan: 82,
-      fev: 84,
-      mar: 86,
-      abr: 85,
-      mai: 87,
-      jun: 88,
-      jul: 89,
-      ago: 87,
-      set: 90,
-      out: 91,
-      nov: 89,
-      dez: 92,
-    },
-    {
-      shift: "3º Turno",
-      jan: 78,
-      fev: 80,
-      mar: 81,
-      abr: 79,
-      mai: 82,
-      jun: 83,
-      jul: 84,
-      ago: 82,
-      set: 85,
-      out: 86,
-      nov: 84,
-      dez: 87,
-    },
-    {
-      shift: "Comercial",
-      jan: 86,
-      fev: 88,
-      mar: 87,
-      abr: 89,
-      mai: 90,
-      jun: 91,
-      jul: 90,
-      ago: 92,
-      set: 91,
-      out: 93,
-      nov: 92,
-      dez: 94,
-    },
-    {
-      shift: "Especial",
-      jan: 84,
-      fev: 85,
-      mar: 86,
-      abr: 87,
-      mai: 88,
-      jun: 89,
-      jul: 88,
-      ago: 90,
-      set: 89,
-      out: 91,
-      nov: 90,
-      dez: 92,
-    },
+  // ============================================
+  // GRÁFICO DE PONTUAÇÃO POR TURNO
+  // ============================================
+  // Dados mockados como fallback (usado se backend ainda não tiver o endpoint)
+  const mockShiftScoreData = [
+    { shift: "1º Turno", jan: 85, fev: 87, mar: 88, abr: 90, mai: 89, jun: 91, jul: 92, ago: 90, set: 93, out: 94, nov: 92, dez: 95 },
+    { shift: "2º Turno", jan: 82, fev: 84, mar: 86, abr: 85, mai: 87, jun: 88, jul: 89, ago: 87, set: 90, out: 91, nov: 89, dez: 92 },
+    { shift: "3º Turno", jan: 78, fev: 80, mar: 81, abr: 79, mai: 82, jun: 83, jul: 84, ago: 82, set: 85, out: 86, nov: 84, dez: 87 },
+    { shift: "Comercial", jan: 86, fev: 88, mar: 87, abr: 89, mai: 90, jun: 91, jul: 90, ago: 92, set: 91, out: 93, nov: 92, dez: 94 },
+    { shift: "Especial", jan: 84, fev: 85, mar: 86, abr: 87, mai: 88, jun: 89, jul: 88, ago: 90, set: 89, out: 91, nov: 90, dez: 92 },
   ]
+
+  // Preparar dados para o gráfico (usar API se disponível, senão mock)
+  const chartData = shiftPerformance.length > 0
+    ? shiftPerformance.map(monthData => ({
+        month: monthData.month,
+        "1º Turno": monthData['1T'] || 0,
+        "2º Turno": monthData['2T'] || 0,
+        "3º Turno": monthData['3T'] || 0,
+        "Comercial": monthData['ADM'] || 0,
+        "Especial": monthData['Especial'] || 0,
+      }))
+    : mockShiftScoreData[0].jan
+      ? Object.keys(mockShiftScoreData[0])
+          .filter((k) => k !== "shift")
+          .map((month) => ({
+            month: month.charAt(0).toUpperCase() + month.slice(1),
+            "1º Turno": mockShiftScoreData[0][month as keyof (typeof mockShiftScoreData)[0]],
+            "2º Turno": mockShiftScoreData[1][month as keyof (typeof mockShiftScoreData)[1]],
+            "3º Turno": mockShiftScoreData[2][month as keyof (typeof mockShiftScoreData)[2]],
+            "Comercial": mockShiftScoreData[3][month as keyof (typeof mockShiftScoreData)[3]],
+            "Especial": mockShiftScoreData[4][month as keyof (typeof mockShiftScoreData)[4]],
+          }))
+      : []
 
   return (
     <AppLayout>
@@ -328,29 +337,39 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Gráfico - MANTIDO IGUAL */}
+        {/* Gráfico de Pontuação Anual por Turno - INTEGRADO COM BACKEND */}
         <Card>
           <CardHeader>
             <CardTitle>Pontuação Anual por Turno</CardTitle>
+            {shiftPerformanceStatus === 'success' && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                ✅ Dados reais do backend ({shiftPerformance.length} meses)
+              </p>
+            )}
+            {shiftPerformanceStatus === 'empty' && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                📊 Sem avaliações no período - exibindo dados de demonstração
+              </p>
+            )}
+            {shiftPerformanceStatus === 'not-implemented' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                ⏳ Endpoint backend pendente - usando dados de demonstração
+              </p>
+            )}
+            {shiftPerformanceStatus === 'error' && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                ⚠️ Erro ao conectar com backend - usando dados de demonstração
+              </p>
+            )}
+            {shiftPerformanceStatus === 'loading' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                🔄 Carregando dados...
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart
-                data={
-                  shiftScoreData[0].jan
-                    ? Object.keys(shiftScoreData[0])
-                        .filter((k) => k !== "shift")
-                        .map((month, idx) => ({
-                          month: month.charAt(0).toUpperCase() + month.slice(1),
-                          "1º Turno": shiftScoreData[0][month as keyof (typeof shiftScoreData)[0]],
-                          "2º Turno": shiftScoreData[1][month as keyof (typeof shiftScoreData)[1]],
-                          "3º Turno": shiftScoreData[2][month as keyof (typeof shiftScoreData)[2]],
-                          "Comercial": shiftScoreData[3][month as keyof (typeof shiftScoreData)[3]],
-                          "Especial": shiftScoreData[4][month as keyof (typeof shiftScoreData)[4]],
-                        }))
-                    : []
-                }
-              >
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="month" />
                 <YAxis domain={[70, 100]} />

@@ -1,6 +1,5 @@
 /**
  * Machines Service - Serviço de gerenciamento de máquinas
- * Baseado em: docs/integration/MACHINES_INTEGRATION.md
  */
 
 import apiClient from './api-client'
