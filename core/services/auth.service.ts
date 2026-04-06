@@ -49,7 +49,10 @@ class AuthService {
         { refreshToken }
       )
 
-      // Armazena o novo refreshToken
+      // Armazena os novos tokens
+      if (data.accessToken && typeof window !== 'undefined') {
+        localStorage.setItem('skillfix_access_token', data.accessToken)
+      }
       if (data.refreshToken && typeof window !== 'undefined') {
         localStorage.setItem('skillfix_refresh_token', data.refreshToken)
       }

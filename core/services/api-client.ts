@@ -21,6 +21,13 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // Adiciona o accessToken ao header se existir
+    if (typeof window !== 'undefined') {
+      const accessToken = localStorage.getItem('skillfix_access_token')
+      if (accessToken && config.headers) {
+        config.headers.Authorization = `Bearer ${accessToken}`
+      }
+    }
     return config
   },
   (error: AxiosError) => {
@@ -102,7 +109,10 @@ apiClient.interceptors.response.use(
           }
         )
 
-        // Armazena o novo refreshToken
+        // Armazena os novos tokens
+        if (response.data?.accessToken && typeof window !== 'undefined') {
+          localStorage.setItem('skillfix_access_token', response.data.accessToken)
+        }
         if (response.data?.refreshToken && typeof window !== 'undefined') {
           localStorage.setItem('skillfix_refresh_token', response.data.refreshToken)
         }
@@ -135,6 +145,7 @@ function handleAuthError(): void {
     // Limpa dados de autenticação
     localStorage.removeItem('skillfix_auth_user')
     localStorage.removeItem('skillfix_refresh_token')
+    localStorage.removeItem('skillfix_access_token')
     // Redireciona para login
     window.location.href = '/login'
   }

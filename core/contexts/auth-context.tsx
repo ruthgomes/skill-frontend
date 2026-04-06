@@ -84,7 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('✅ Login realizado com sucesso!')
       console.log('🔑 Access Token recebido:', loginResponse.accessToken.substring(0, 20) + '...')
       
-      // Armazena o refreshToken
+      // Armazena tokens
+      localStorage.setItem('skillfix_access_token', loginResponse.accessToken)
       if (loginResponse.refreshToken) {
         localStorage.setItem('skillfix_refresh_token', loginResponse.refreshToken)
         console.log('💾 Refresh token armazenado')
@@ -143,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null)
       localStorage.removeItem(AUTH_STORAGE_KEY)
       localStorage.removeItem('skillfix_refresh_token')
+      localStorage.removeItem('skillfix_access_token')
     }
   }, [])
 
