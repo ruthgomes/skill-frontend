@@ -7,7 +7,7 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 import { API_CONFIG } from '@/core/constants/app.constants'
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: `${API_CONFIG.baseURL}${API_CONFIG.apiPrefix}`,
   timeout: API_CONFIG.timeout,
   headers: {
     'Content-Type': 'application/json',
@@ -86,10 +86,14 @@ apiClient.interceptors.response.use(
       isRefreshing = true
 
       try {
-        // Tenta renovar o token através da rota de API proxy
-        await axios.post('/api/auth/refresh', {}, {
-          withCredentials: true,  // Garante envio de cookies
-        })
+        // Tenta renovar o token
+        await axios.post(
+          `${API_CONFIG.baseURL}${API_CONFIG.apiPrefix}/auth/refresh`, 
+          {}, 
+          {
+            withCredentials: true,  // Garante envio de cookies
+          }
+        )
 
         // Processa fila de requisições pendentes
         processQueue(null, null)
