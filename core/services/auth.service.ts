@@ -37,9 +37,22 @@ class AuthService {
    */
   async refreshToken(): Promise<RefreshTokenResponse> {
     try {
+      // Busca o refreshToken do localStorage
+      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('skillfix_refresh_token') : null
+      
+      if (!refreshToken) {
+        throw new Error('No refresh token available')
+      }
+
       const { data } = await apiClient.post<RefreshTokenResponse>(
-        API_ENDPOINTS.AUTH.REFRESH
+        API_ENDPOINTS.AUTH.REFRESH,
+        { refreshToken }
       )
+
+      // Armazena o novo refreshToken
+      if (data.refreshToken && typeof window !== 'undefined') {
+        localStorage.setItem('skillfix_refresh_token', data.refreshToken)
+      }
 
       return data
     } catch (error: any) {

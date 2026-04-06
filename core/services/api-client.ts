@@ -86,14 +86,26 @@ apiClient.interceptors.response.use(
       isRefreshing = true
 
       try {
-        // Tenta renovar o token
-        await axios.post(
+        // Busca o refreshToken do localStorage
+        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('skillfix_refresh_token') : null
+        
+        if (!refreshToken) {
+          throw new Error('No refresh token available')
+        }
+
+        // Tenta renovar o token enviando refreshToken no body
+        const response = await axios.post(
           `${API_CONFIG.baseURL}${API_CONFIG.apiPrefix}/auth/refresh`, 
-          {}, 
+          { refreshToken }, 
           {
-            withCredentials: true,  // Garante envio de cookies
+            withCredentials: true,
           }
         )
+
+        // Armazena o novo refreshToken
+        if (response.data?.refreshToken && typeof window !== 'undefined') {
+          localStorage.setItem('skillfix_refresh_token', response.data.refreshToken)
+        }
 
         // Processa fila de requisições pendentes
         processQueue(null, null)
@@ -120,6 +132,9 @@ apiClient.interceptors.response.use(
 
 function handleAuthError(): void {
   if (typeof window !== 'undefined') {
+    // Limpa dados de autenticação
+    localStorage.removeItem('skillfix_auth_user')
+    localStorage.removeItem('skillfix_refresh_token')
     // Redireciona para login
     window.location.href = '/login'
   }

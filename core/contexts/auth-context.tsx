@@ -84,6 +84,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('✅ Login realizado com sucesso!')
       console.log('🔑 Access Token recebido:', loginResponse.accessToken.substring(0, 20) + '...')
       
+      // Armazena o refreshToken
+      if (loginResponse.refreshToken) {
+        localStorage.setItem('skillfix_refresh_token', loginResponse.refreshToken)
+        console.log('💾 Refresh token armazenado')
+      }
+      
       // WORKAROUND: Como /auth/me não existe, usamos /auth/refresh para obter dados do usuário
       // O endpoint refresh retorna: { accessToken, refreshToken, user }
       // O refreshToken está armazenado em cookie httpOnly, não precisa ser passado
@@ -136,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Sempre limpa o estado local
       setUser(null)
       localStorage.removeItem(AUTH_STORAGE_KEY)
+      localStorage.removeItem('skillfix_refresh_token')
     }
   }, [])
 
