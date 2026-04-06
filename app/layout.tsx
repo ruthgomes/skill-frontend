@@ -4,7 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider, NotificationProvider } from "@/core/contexts"
 import { ThemeProvider } from "@/shared/components/common"
-import { Toaster } from "@/shared/components/ui/sonner"
+import { SonnerToaster } from "@/shared/components/ui/sonner"
 import "./globals.css"
 
 const geist = Geist({ 
@@ -40,7 +40,7 @@ export default function RootLayout({
           <NotificationProvider>
             <AuthProvider>
               {children}
-              <Toaster position="top-right" richColors />
+              <SonnerToaster position="top-right" richColors />
             </AuthProvider>
           </NotificationProvider>
           <Analytics />

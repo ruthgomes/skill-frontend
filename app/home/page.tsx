@@ -12,7 +12,7 @@ import { Loader2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 
 export default function DashboardPage() {
-  const { user, isLoading: authLoading } = useAuth()
+  const { user, isLoading: authLoading, isCoordenador } = useAuth()
   const router = useRouter()
   const hasRedirected = useRef(false)
   
@@ -28,8 +28,12 @@ export default function DashboardPage() {
     if (!user) {
       hasRedirected.current = true
       router.replace("/login")
+    } else if (isCoordenador) {
+      // Redirecionar coordenador para sua página específica
+      hasRedirected.current = true
+      router.replace("/coordenador")
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading, isCoordenador, router])
 
   // Busca métricas do dashboard
   useEffect(() => {
@@ -63,10 +67,14 @@ export default function DashboardPage() {
             console.log('✅ Shift performance carregado com sucesso:', performanceData.length, 'meses')
             setShiftPerformance(performanceData)
             setShiftPerformanceStatus('success')
-          } else {
+          } else if (Array.isArray(performanceData) && performanceData.length === 0) {
             console.warn('⚠️ API retornou array vazio - sem avaliações no período')
             setShiftPerformance([])
             setShiftPerformanceStatus('empty')
+          } else {
+            console.error('❌ resposta inesperada (não é um array):', performanceData)
+            setShiftPerformance([])
+            setShiftPerformanceStatus('error')
           }
         } catch (perfErr: any) {
           // Extrair status HTTP do erro Axios
@@ -78,7 +86,7 @@ export default function DashboardPage() {
             status,
             message: errorMessage,
             data: errorData,
-            fullError: perfErr
+            fullError: JSON.stringify(perfErr, null, 2)
           })
           
           if (status === 404) {

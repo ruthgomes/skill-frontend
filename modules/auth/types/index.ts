@@ -14,5 +14,6 @@ export interface RegisterData {
   confirmPassword: string
 }
 
-// Re-export tipos do auth-context
-export type { AuthUser, UserRole } from '@/core/contexts/auth-context'
+// Re-export tipos do auth-context e core types
+export type { AuthUser } from '@/core/contexts/auth-context'
+export type { UserRole } from '@/core/types/api.types'

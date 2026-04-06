@@ -74,6 +74,8 @@ type ColaboradorForm = {
   // Sistema Multi-Supervisor: credenciais obrigatórias se senioridade = Supervisor
   email: string;
   password: string;
+  // Sistema Coordenador: sub-time que o coordenador irá liderar (obrigatório se senioridade = Coordenador)
+  ledSubtimeId: string;
 };
 
 type MachineForm = {
@@ -123,6 +125,7 @@ export default function CadastroPage() {
     joinDate: "",
     email: "",
     password: "",
+    ledSubtimeId: "",
   });
 
   const [machineForm, setMachineForm] = useState<MachineForm>({
@@ -151,6 +154,13 @@ export default function CadastroPage() {
   const [availableSubtimes, setAvailableSubtimes] = useState<SubTeam[]>([]);
 
   // Buscar dados do backend
+  // Verificar autenticação
+  useEffect(() => {
+    if (!user || user.role !== "master") {
+      router.replace("/login")
+    }
+  }, [user, router])
+
   useEffect(() => {
     fetchAllData();
   }, []);
@@ -194,9 +204,9 @@ export default function CadastroPage() {
     }
   }, [colaboradorForm.teamId, subtimes]);
 
+  // Não renderizar se não estiver autenticado
   if (!user || user.role !== "master") {
-    router.replace("/login");
-    return null;
+    return null
   }
 
   // Loading state
@@ -347,8 +357,24 @@ export default function CadastroPage() {
       }
     }
 
-    // Se não for Supervisor, precisa ter time e sub-time
-    if (colaboradorForm.senioridade !== "Supervisor") {
+    // Se for Coordenador, email, password e ledSubtimeId são obrigatórios
+    if (colaboradorForm.senioridade === "Coordenador") {
+      if (!colaboradorForm.email || !colaboradorForm.password) {
+        showError("E-mail e senha são obrigatórios para Coordenadores!");
+        return;
+      }
+      if (colaboradorForm.password.length < 8) {
+        showError("Senha deve ter no mínimo 8 caracteres!");
+        return;
+      }
+      if (!colaboradorForm.ledSubtimeId) {
+        showError("Sub-time é obrigatório para Coordenadores!");
+        return;
+      }
+    }
+
+    // Se não for Supervisor ou Coordenador, precisa ter time e sub-time
+    if (colaboradorForm.senioridade !== "Supervisor" && colaboradorForm.senioridade !== "Coordenador") {
       if (!colaboradorForm.teamId || !colaboradorForm.subtimeId) {
         warning(
           "Colaboradores não-supervisores precisam ter Time e Sub-time definidos!",
@@ -380,6 +406,13 @@ export default function CadastroPage() {
       if (colaboradorForm.senioridade === "Supervisor") {
         tecnicoData.email = colaboradorForm.email;
         tecnicoData.password = colaboradorForm.password;
+      }
+
+      // Adicionar credenciais e ledSubtimeId se for Coordenador
+      if (colaboradorForm.senioridade === "Coordenador") {
+        tecnicoData.email = colaboradorForm.email;
+        tecnicoData.password = colaboradorForm.password;
+        tecnicoData.ledSubtimeId = colaboradorForm.ledSubtimeId;
       }
 
       // Criar técnico primeiro
@@ -417,6 +450,7 @@ export default function CadastroPage() {
         joinDate: "",
         email: "",
         password: "",
+        ledSubtimeId: "",
       });
       setProfilePhoto(null);
       setPhotoFile(null);
@@ -533,6 +567,7 @@ export default function CadastroPage() {
   };
 
   const isSupervisor = colaboradorForm.senioridade === "Supervisor";
+  const isCoordenador = colaboradorForm.senioridade === "Coordenador";
 
   return (
     <AppLayout>
@@ -820,6 +855,87 @@ export default function CadastroPage() {
                         />
                         <p className="text-xs text-muted-foreground">
                           Senha deve ter no mínimo 8 caracteres
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Campos condicionais para Coordenador */}
+                  {isCoordenador && (
+                    <>
+                      <div className="col-span-2">
+                        <Alert className="bg-green-50 border-green-200">
+                          <AlertCircle className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">
+                            👔 Ao cadastrar um Coordenador, uma conta de usuário
+                            será criada automaticamente. O Coordenador poderá
+                            gerenciar apenas os técnicos do sub-time selecionado abaixo.
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold">
+                          E-mail do Coordenador{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          type="email"
+                          placeholder="coordenador@empresa.com"
+                          className="border-primary/20"
+                          value={colaboradorForm.email}
+                          onChange={(e) =>
+                            setColaboradorForm({
+                              ...colaboradorForm,
+                              email: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold">
+                          Senha <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          type="password"
+                          placeholder="Mínimo 8 caracteres"
+                          className="border-primary/20"
+                          value={colaboradorForm.password}
+                          onChange={(e) =>
+                            setColaboradorForm({
+                              ...colaboradorForm,
+                              password: e.target.value,
+                            })
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Senha deve ter no mínimo 8 caracteres
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-semibold">
+                          Sub-time que irá Liderar{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          className="w-full border border-primary/20 rounded p-2 bg-card text-card-foreground"
+                          value={colaboradorForm.ledSubtimeId}
+                          onChange={(e) =>
+                            setColaboradorForm({
+                              ...colaboradorForm,
+                              ledSubtimeId: e.target.value,
+                            })
+                          }
+                          required
+                        >
+                          <option value="">Selecione...</option>
+                          {subtimes.map((subtime) => (
+                            <option key={subtime.id} value={subtime.id}>
+                              {subtime.name} ({teams.find(t => t.id === subtime.parentTeamId)?.name || 'N/A'})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-muted-foreground">
+                          O coordenador poderá gerenciar os técnicos deste sub-time
                         </p>
                       </div>
                     </>

@@ -41,6 +41,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
@@ -73,6 +83,8 @@ export default function TeamDetailPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingSubTeam, setEditingSubTeam] = useState<SubTeam | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [subTeamToDelete, setSubTeamToDelete] = useState<string | null>(null)
   const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
@@ -249,21 +261,27 @@ const availableCoordinators = useMemo(() => {
     setDialogOpen(true)
   }
 
-  const handleDelete = async (subTeamId: string) => {
-    if (!confirm("Tem certeza que deseja excluir este sub-time?")) {
-      return
-    }
+  const handleDelete = (subTeamId: string) => {
+    setSubTeamToDelete(subTeamId)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!subTeamToDelete) return
 
     try {
-      console.log('🔄 Deletando sub-time:', subTeamId)
-      await subtimesService.remove(subTeamId)
+      console.log('🔄 Deletando sub-time:', subTeamToDelete)
+      await subtimesService.remove(subTeamToDelete)
       
-      setSubTeams(subTeams.filter((st) => st.id !== subTeamId))
+      setSubTeams(subTeams.filter((st) => st.id !== subTeamToDelete))
       success("Sub-time excluído com sucesso!")
       console.log('✅ Sub-time deletado')
     } catch (err) {
       console.error('❌ Erro ao deletar sub-time:', err)
       showError(err instanceof Error ? err.message : 'Erro ao deletar sub-time')
+    } finally {
+      setDeleteDialogOpen(false)
+      setSubTeamToDelete(null)
     }
   }
 
@@ -624,6 +642,28 @@ const availableCoordinators = useMemo(() => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Dialog de confirmação de exclusão */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir este sub-time?
+                Esta ação não pode ser desfeita e todos os técnicos associados ficarão sem sub-time.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir Sub-time
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   )

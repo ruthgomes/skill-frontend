@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useNotification } from "@/core/contexts"
 import { Button } from "@/shared/components/ui/button"
@@ -11,7 +11,7 @@ import { Loader2, KeyRound, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
@@ -191,5 +191,17 @@ export default function ResetPasswordPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#005486]" />
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }

@@ -39,6 +39,7 @@ export default function TecnicoDetailPage() {
   const tecnicoId = params.id as string
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoTimestamp, setPhotoTimestamp] = useState<number>(Date.now())
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Backend integration states
@@ -50,7 +51,7 @@ export default function TecnicoDetailPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user || user.role !== "master") {
+    if (!user) {
       router.replace("/login")
     } else {
       fetchTecnicoData()
@@ -67,6 +68,11 @@ export default function TecnicoDetailPage() {
       const tecnicoData = await tecnicosService.findOne(tecnicoId)
       setTecnico(tecnicoData)
       console.log('✅ Técnico carregado:', tecnicoData.name)
+      
+      // Atualizar timestamp da foto para forçar re-renderização da imagem
+      if (tecnicoData.photo) {
+        setPhotoTimestamp(Date.now())
+      }
       
       // Fetch team name if has team
       if (tecnicoData.teamId) {
@@ -112,7 +118,7 @@ export default function TecnicoDetailPage() {
     }
   }
 
-  if (!user || user.role !== "master") {
+  if (!user) {
     return null
   }
 
@@ -228,6 +234,9 @@ export default function TecnicoDetailPage() {
       success('Foto atualizada com sucesso!')
       console.log('✅ Foto enviada')
       
+      // Atualizar timestamp para forçar reload da imagem
+      setPhotoTimestamp(Date.now())
+      
       // Recarregar dados do técnico para obter URL da foto
       await fetchTecnicoData()
     } catch (err) {
@@ -259,6 +268,9 @@ export default function TecnicoDetailPage() {
       success('Foto removida com sucesso!')
       console.log('✅ Foto removida')
       
+      // Atualizar timestamp para forçar reload da imagem
+      setPhotoTimestamp(Date.now())
+      
       // Recarregar dados do técnico
       await fetchTecnicoData()
     } catch (err) {
@@ -269,16 +281,18 @@ export default function TecnicoDetailPage() {
     }
   }
   
-  // Construir URL completa da foto
+  // Construir URL completa da foto com cache buster
   const getPhotoURL = (photoPath: string | null | undefined): string | null => {
   if (!photoPath) return null
   
   // Se já for uma URL completa, retorna ela
-  if (photoPath.startsWith('http')) return photoPath
+  if (photoPath.startsWith('http')) {
+    return `${photoPath}?t=${photoTimestamp}`
+  }
   
   // Remove barras duplicadas e garante o formato correto
   const cleanPath = photoPath.replace(/^\/+/, '')
-  return `${API_BASE_URL}/${cleanPath}`
+  return `${API_BASE_URL}/${cleanPath}?t=${photoTimestamp}`
 }
 
   return (
@@ -296,18 +310,15 @@ export default function TecnicoDetailPage() {
             <div className="flex flex-col md:flex-row gap-6 items-start">
               {/* Avatar with Photo Upload */}
               <div className="relative group">
-                <Avatar className="h-32 w-32 border-4 border-primary/20">
+                <Avatar className="h-32 w-32 border-4 border-primary/20" key={`avatar-${photoTimestamp}`}>
                   {tecnico.photo ? (
                     <AvatarImage 
+                      key={`photo-${tecnico.photo}-${photoTimestamp}`}
                       src={getPhotoURL(tecnico.photo) || undefined} 
                       alt={tecnico.name}
                       onError={(e) => {
                         console.error('❌ Erro ao carregar imagem:', tecnico.photo)
-                        console.error('❌ URL tentada:', getPhotoURL(tecnico.photo))
                         e.currentTarget.style.display = 'none'
-                      }}
-                      onLoad={() => {
-                        console.log('Imagem carregada com sucesso:', tecnico.photo)
                       }}
                     />
                   ) : null}

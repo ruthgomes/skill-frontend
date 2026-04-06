@@ -3,9 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useState, useCallback, useEffect } from "react"
 import { authService } from "@/core/services"
-import type { Tecnico } from "@/core/types/api.types"
-
-export type UserRole = "master" | "supervisor"
+import { UserRole, type Tecnico } from "@/core/types/api.types"
 
 export interface AuthUser {
   id: string
@@ -14,7 +12,7 @@ export interface AuthUser {
   role: UserRole
   workday?: string
   isActive: boolean
-  // Sistema Multi-Supervisor: vincula User a Tecnico (se for supervisor)
+  // Sistema Multi-Supervisor: vincula User a Tecnico (se for supervisor/coordenador)
   tecnicoId?: string | null
   tecnico?: Tecnico | null
 }
@@ -22,9 +20,10 @@ export interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null
   isLoading: boolean
-  isSupervisor: boolean  // True se user.tecnicoId existe
-  isAdmin: boolean       // True se user.tecnicoId === null (admin vê tudo)
-  supervisorId: string | null  // ID do técnico vinculado (se supervisor)
+  isSupervisor: boolean  // True se role = supervisor
+  isCoordenador: boolean // True se role = coordenador
+  isAdmin: boolean       // True se role = master
+  supervisorId: string | null  // ID do técnico vinculado (se supervisor ou coordenador)
   login: (email: string, password: string) => Promise<void>
   logout: () => void
 }
@@ -39,8 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   // Calcular flags baseadas no user
-  const isSupervisor = !!user?.tecnicoId
-  const isAdmin = !user?.tecnicoId && !!user  // Logado mas sem tecnicoId = Admin
+  const isSupervisor = user?.role === UserRole.SUPERVISOR
+  const isCoordenador = user?.role === UserRole.COORDENADOR
+  const isAdmin = user?.role === UserRole.MASTER
   const supervisorId = user?.tecnicoId || null
 
   // Carregar usuário do localStorage na inicialização
@@ -86,10 +86,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // WORKAROUND: Como /auth/me não existe, usamos /auth/refresh para obter dados do usuário
       // O endpoint refresh retorna: { accessToken, refreshToken, user }
+      // O refreshToken está armazenado em cookie httpOnly, não precisa ser passado
       console.log('🔄 Buscando dados do usuário via refresh...')
-      const refreshResponse = await authService.refreshToken({ 
-        refreshToken: loginResponse.refreshToken 
-      })
+      const refreshResponse = await authService.refreshToken()
       
       console.log('👤 Dados do usuário:', refreshResponse.user)
       
@@ -146,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user, 
         isLoading, 
         isSupervisor, 
+        isCoordenador,
         isAdmin, 
         supervisorId,
         login, 

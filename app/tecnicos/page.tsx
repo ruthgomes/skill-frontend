@@ -15,12 +15,12 @@ import { useState, useEffect } from "react"
 import { Search, Loader2, AlertCircle, MoreVertical, Edit, Trash2, Eye } from "lucide-react"
 import { fetchAllPaginated } from "@/core/utils/pagination.utils"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
-import { useOwnershipFilter } from "@/core/hooks/use-ownership-filter"
+import { usePermissions } from "@/core/hooks"
 
 export default function TecnicosPage() {
-  const { user, isAdmin } = useAuth()
+  const { user } = useAuth()
   const { success, error: showError } = useNotification()
-  const { canEdit, canDelete, filterOwned } = useOwnershipFilter()
+  const { canDeleteTecnico, canEditTecnico, isAdmin, isSupervisor, isCoordenador } = usePermissions()
 
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
@@ -35,7 +35,7 @@ export default function TecnicosPage() {
   const [tecnicoToDelete, setTecnicoToDelete] = useState<Tecnico | null>(null)
 
   useEffect(() => {
-    if (!user || user.role !== "master") {
+    if (!user) {
       router.replace("/login")
     } else {
       fetchTecnicos()
@@ -81,11 +81,7 @@ export default function TecnicosPage() {
   }
 
   const handleOpenDeleteDialog = (tecnico: Tecnico) => {
-    const tecnicoWithCreatedById = {
-      ...tecnico,
-      createdById: (tecnico as any).createdById ?? null
-    }
-    if (!canDelete(tecnicoWithCreatedById)) {
+    if (!canDeleteTecnico) {
       showError("Você não tem permissão para excluir este colaborador")
       return
     }
@@ -102,7 +98,7 @@ export default function TecnicosPage() {
     router.push(`/tecnicos/${id}`)
   }
 
-  if (!user || user.role !== "master") {
+  if (!user) {
     return null
   }
 
@@ -121,12 +117,11 @@ export default function TecnicosPage() {
     return tecnico.tecnicoSkills?.length || 0
   }
 
-  const visibleTecnicos = filterOwned(
-    tecnicos.map(tecnico => ({
-      ...tecnico,
-      createdById: (tecnico as any).createdById ?? null
-    }))
-  )
+  // Backend já filtra automaticamente baseado na role do usuário
+  // Admin: vê todos os técnicos
+  // Supervisor: vê apenas técnicos que criou
+  // Coordenador: vê apenas técnicos do sub-time que lidera
+  const visibleTecnicos = tecnicos
 
   if (error) {
     return (
@@ -160,6 +155,36 @@ export default function TecnicosPage() {
             }
           </p>
         </div>
+
+        {/* Alerta de Coordenadores sem Conta */}
+        {isAdmin && (() => {
+          const coordenadoresSemConta = tecnicos.filter(
+            (t) => t.senioridade === "Coordenador" && !t.hasUserAccount
+          )
+          
+          if (coordenadoresSemConta.length > 0) {
+            return (
+              <Alert className="border-orange-300 bg-orange-50">
+                <AlertCircle className="h-4 w-4 text-orange-700" />
+                <AlertDescription className="flex items-center justify-between">
+                  <span className="text-orange-700">
+                    ⚠️ <strong>{coordenadoresSemConta.length} coordenador{coordenadoresSemConta.length > 1 ? 'es' : ''}</strong> sem credenciais de acesso.
+                    {' '}Adicione email e senha para que possam fazer login no sistema.
+                  </span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => router.push('/migrar-coordenadores')}
+                    className="ml-4 border-orange-600 text-orange-700 hover:bg-orange-100"
+                  >
+                    Migrar Agora
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )
+          }
+          return null
+        })()}
 
         {/* Search Bar */}
         <Card className="border-primary/10">
@@ -208,9 +233,11 @@ export default function TecnicosPage() {
         {!loading && !error && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {visibleTecnicos.map((tecnico) => {
-                const canEditTecnico = canEdit(tecnico)
-                const canDeleteTecnico = canDelete(tecnico)
+              {visibleTecnicos.map((tecnico: Tecnico) => {
+                // Para coordenador: backend já filtra apenas técnicos do sub-time
+                // Para supervisor/master: pode ver/editar conforme permissões
+                const canEditThisTecnico = canEditTecnico
+                const canDeleteThisTecnico = canDeleteTecnico
                 return (
                   <Card
                     key={tecnico.id}
@@ -232,14 +259,30 @@ export default function TecnicosPage() {
                             <Badge variant={tecnico.status ? "default" : "secondary"}>
                               {tecnico.status ? "Ativo" : "Inativo"}
                             </Badge>
-                            {tecnico.hasUserAccount && (
+                            
+                            {/* Badge para Supervisores com conta */}
+                            {tecnico.senioridade === "Supervisor" && tecnico.hasUserAccount && (
                               <Badge className="bg-purple-600 text-white hover:bg-purple-700">
                                 👤 Supervisor
                               </Badge>
                             )}
+                            
+                            {/* Badge para Coordenadores com conta */}
+                            {tecnico.senioridade === "Coordenador" && tecnico.hasUserAccount && (
+                              <Badge className="bg-blue-600 text-white hover:bg-blue-700">
+                                👤 Coordenador
+                              </Badge>
+                            )}
+                            
+                            {/* Alerta para Supervisores/Coordenadores SEM conta */}
+                            {(tecnico.senioridade === "Supervisor" || tecnico.senioridade === "Coordenador") && !tecnico.hasUserAccount && (
+                              <Badge variant="destructive" className="bg-orange-600 hover:bg-orange-700">
+                                ⚠️ Sem acesso
+                              </Badge>
+                            )}
                           </div>
 
-                          {(canEditTecnico || canDeleteTecnico) && (
+                          {(canEditThisTecnico || canDeleteThisTecnico) && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm">
@@ -251,13 +294,13 @@ export default function TecnicosPage() {
                                   <Eye className="mr-2 h-4 w-4" />
                                   Ver Detalhes
                                 </DropdownMenuItem>
-                                {canEditTecnico && (
+                                {canEditThisTecnico && (
                                   <DropdownMenuItem onClick={() => router.push(`/tecnicos/${tecnico.id}/edit`)}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Editar
                                   </DropdownMenuItem>
                                 )}
-                                {canDeleteTecnico && (
+                                {canDeleteThisTecnico && (
                                   <DropdownMenuItem 
                                     onClick={() => handleOpenDeleteDialog(tecnico)} 
                                     className="text-red-600 focus:text-red-600"

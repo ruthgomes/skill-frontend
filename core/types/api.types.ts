@@ -34,6 +34,7 @@ export interface RefreshTokenResponse {
 export enum UserRole {
   MASTER = 'master',
   SUPERVISOR = 'supervisor',
+  COORDENADOR = 'coordenador',
 }
 
 export enum Workday {
@@ -123,6 +124,9 @@ export interface Tecnico {
   // Sistema Multi-Supervisor: indica se técnico tem conta de usuário
   hasUserAccount?: boolean
   user?: User
+  // Sistema Coordenador: sub-time que o coordenador lidera
+  ledSubtimeId?: string | null
+  ledSubtime?: SubTeam | null
 }
 
 export interface CreateTecnicoRequest {
@@ -144,6 +148,8 @@ export interface CreateTecnicoRequest {
   gender?: 'M' | 'F' | 'O'
   // Sistema Multi-Supervisor: credenciais obrigatórias se senioridade = Supervisor
   password?: string
+  // Sistema Coordenador: sub-time que o coordenador irá liderar (obrigatório se senioridade = Coordenador)
+  ledSubtimeId?: string
 }
 
 export interface UpdateTecnicoRequest {
@@ -151,7 +157,9 @@ export interface UpdateTecnicoRequest {
   position?: string
   teamId?: string
   subtimeId?: string
+  ledSubtimeId?: string
   email?: string
+  password?: string
   phone?: string
   birthDate?: string
   notes?: string

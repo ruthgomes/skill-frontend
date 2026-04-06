@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const { login, isLoading } = useAuth()
+  const { login, isLoading, user } = useAuth()
   const { error: showErrorToast } = useNotification()
   const router = useRouter()
   const { setTheme } = useTheme()
@@ -38,8 +38,12 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      // Usa replace em vez de push para não adicionar no histórico
-      router.replace("/home")
+      // Redirecionar baseado na role do usuário
+      // Note: precisamos esperar um pouco para o estado user ser atualizado
+      setTimeout(() => {
+        // Usa replace em vez de push para não adicionar no histórico
+        router.replace("/home")
+      }, 100)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Email ou senha inválidos"
       setError(errorMessage)

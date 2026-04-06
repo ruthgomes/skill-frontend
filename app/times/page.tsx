@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Badge } from "@/shared/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/shared/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/shared/components/ui/alert-dialog"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { Textarea } from "@/shared/components/ui/textarea"
@@ -26,6 +27,9 @@ export default function TimesPage() {
   const { canEdit, canDelete, filterOwned } = useOwnershipFilter()
   const router = useRouter()
   
+  // Verificar se é coordenador
+  const isCoordenador = user?.role === 'coordenador'
+  
   // Estados para dados do backend
   const [teams, setTeams] = useState<Team[]>([])
   const [subtimes, setSubtimes] = useState<SubTeam[]>([])
@@ -37,6 +41,8 @@ export default function TimesPage() {
   // Estados do formulário
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTeam, setEditingTeam] = useState<Team | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [teamToDelete, setTeamToDelete] = useState<Team | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -125,17 +131,22 @@ export default function TimesPage() {
     setDialogOpen(true)
   }
 
-  const handleDelete = async (team: Team) => {
+  const handleDelete = (team: Team) => {
     if (!canDelete({ createdById: (team as any).createdById })) {
       showError("Você não tem permissão para excluir este time.")
       return
     }
 
-    if (!confirm("Tem certeza que deseja excluir este time?")) return
+    setTeamToDelete(team)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!teamToDelete) return
     
     try {
       setSubmitting(true)
-      await teamsService.remove(team.id)
+      await teamsService.remove(teamToDelete.id)
       success('Time excluído com sucesso!')
       
       // Recarrega dados
@@ -145,6 +156,8 @@ export default function TimesPage() {
       showError(err instanceof Error ? err.message : 'Erro ao deletar time')
     } finally {
       setSubmitting(false)
+      setDeleteDialogOpen(false)
+      setTeamToDelete(null)
     }
   }
 
@@ -169,9 +182,16 @@ export default function TimesPage() {
     return teamSubtimes.reduce((acc, st) => acc + (st.tecnicos?.length || 0), 0)
   }
 
-  const visibleTeams = filterOwned(
-    teams.map(team => ({ ...team, createdById: (team as any).createdById }))
-  )
+  // Para coordenadores, mostrar apenas os sub-times que eles lideram
+  const coordinatorSubtimes = isCoordenador && user?.tecnicoId
+    ? subtimes.filter((st) => st.coordenadorId === user.tecnicoId)
+    : []
+
+  const visibleTeams = isCoordenador 
+    ? [] // Coordenadores não veem times completos
+    : filterOwned(
+        teams.map(team => ({ ...team, createdById: (team as any).createdById }))
+      )
 
   // Loading state
   if (loading) {
@@ -210,23 +230,86 @@ export default function TimesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              {isAdmin ? "Gerenciamento de Times" : "Meus Times"}
+              {isCoordenador 
+                ? "Meus Sub-Times" 
+                : isAdmin 
+                  ? "Gerenciamento de Times" 
+                  : "Meus Times"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isAdmin 
-                ? "Gerencia todos os times" 
-                : "Apenas times que você criou aparecem aqui"
+              {isCoordenador
+                ? "Sub-times que você lidera"
+                : isAdmin 
+                  ? "Gerencia todos os times" 
+                  : "Apenas times que você criou aparecem aqui"
               }
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} size="lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Time
-          </Button>
+          {!isCoordenador && (
+            <Button onClick={() => setDialogOpen(true)} size="lg">
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Time
+            </Button>
+          )}
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {visibleTeams.map((team) => {
+        {/* Renderizar sub-times para coordenadores */}
+        {isCoordenador && (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {coordinatorSubtimes.map((subtime) => {
+              const parentTeam = teams.find(t => t.id === subtime.parentTeamId)
+              return (
+                <Card key={subtime.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className="w-3 h-3 rounded-full bg-blue-600"
+                        />
+                        <div>
+                          <CardTitle className="text-xl">{subtime.name}</CardTitle>
+                          <CardDescription className="mt-1">
+                            {parentTeam?.name || 'Time principal'}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {subtime.description || 'Sem descrição'}
+                    </p>
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center">
+                          <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{subtime.tecnicos?.length || 0}</span>
+                          <span className="text-muted-foreground ml-1">técnicos</span>
+                        </div>
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                          Coordenador
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => router.push('/coordenador')}
+                    >
+                      Ver Técnicos
+                      <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Renderizar times para admins/supervisores */}
+        {!isCoordenador && (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {visibleTeams.map((team) => {
             const canEditTeam = canEdit(team)
             const canDeleteTeam = canDelete(team)
             return (
@@ -304,9 +387,23 @@ export default function TimesPage() {
             </Card>
           )
         })}
-        </div>
+          </div>
+        )}
 
-        {visibleTeams.length === 0 && (
+        {/* Mensagem quando não há resultados */}
+        {isCoordenador && coordinatorSubtimes.length === 0 && (
+          <Card className="p-12 text-center">
+            <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">
+              Nenhum sub-time atribuído
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              Você ainda não foi designado como coordenador de nenhum sub-time. Entre em contato com o administrador do sistema.
+            </p>
+          </Card>
+        )}
+
+        {!isCoordenador && visibleTeams.length === 0 && (
           <Card className="p-12 text-center">
             <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">
@@ -431,6 +528,36 @@ export default function TimesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o time <strong>{teamToDelete?.name}</strong>?
+              Esta ação não pode ser desfeita e todos os sub-times associados também serão afetados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={submitting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir Time'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </AppLayout>
   )
